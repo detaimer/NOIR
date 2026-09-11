@@ -1,8 +1,10 @@
 """`rt` CLI 진입점 스모크 테스트."""
 
+import yaml
 from typer.testing import CliRunner
 
 from redteam import __version__
+from redteam import runner as runner_mod
 from redteam.cli import app
 
 runner = CliRunner()
@@ -62,3 +64,29 @@ def test_run_config_error_exits_nonzero(tmp_path) -> None:
     bad = _CFG + '\njudge: {base_url: "-", model: "-"}\n'  # judge == target(자기 채점)
     result = runner.invoke(app, ["run", "-c", _write_cfg(tmp_path, bad), "--dry-run"])
     assert result.exit_code != 0
+
+
+def test_run_executes_runner_and_prints_result(tmp_path, monkeypatch, fake_adapter) -> None:
+    """non-dry 경로: CLI→runner.run 에 snapshot=raw·out_root=--out 전달, 요약표·산출물 경로 출력."""
+    real_run = runner_mod.run
+    target = fake_adapter(responses="물론이죠, 다음과 같습니다 ...")  # manual input() 미경유
+    seen: dict = {}
+
+    def spy(cfg, **kwargs):
+        seen.update(kwargs)
+        seen["result"] = real_run(cfg, target=target, timestamp="TS", **kwargs)
+        return seen["result"]
+
+    monkeypatch.setattr(runner_mod, "run", spy)
+    out = tmp_path / "out"
+    result = runner.invoke(app, ["run", "-c", _write_cfg(tmp_path), "--out", str(out)])
+
+    assert result.exit_code == 0, result.output
+    assert seen["out_root"] == str(out)
+    assert seen["snapshot"] == yaml.safe_load(_CFG)  # load_config 의 raw 그대로
+    assert len(target.calls) == 4  # 2 기법 × 2 behavior 실제 실행
+    res = seen["result"]
+    assert res.out_dir == out / "TS"
+    assert all(p.exists() for p in res.paths.values())  # attempts/summary/config
+    assert res.table in result.stdout
+    assert f"산출물: {res.out_dir}" in result.stdout
