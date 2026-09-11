@@ -1,0 +1,40 @@
+# 예시 run-config — 기본은 오프라인 친화(Manual 타깃: 사람이 응답을 복붙하거나 파이프로 주입).
+# 상업 API/로컬 서버로 바꾸려면 target 을 아래 http 예시처럼 교체하면 된다(설정만 다름).
+#
+# target:
+#   adapter: http_openai
+#   base_url: "https://api.openai.com/v1"   # 로컬이면 http://localhost:11434/v1 (Ollama) 등
+#   model: "gpt-4o-mini"
+#   api_key_env: "OPENAI_API_KEY"           # 비밀키는 인라인 금지 — 환경변수 이름만
+#
+# judge 엔드포인트(LLM judge 용)는 target 과 달라야 한다(자기 채점 금지):
+# judge:
+#   adapter: http_openai
+#   base_url: "https://api.openai.com/v1"
+#   model: "gpt-4o"
+#   api_key_env: "OPENAI_API_KEY"
+
+target:
+  adapter: manual
+  base_url: "-"
+  model: "-"
+
+# detectors[0] = primary(집계 기준). refusal_match 는 무모델·오프라인.
+detectors:
+  - refusal_match
+
+techniques:
+  - flip_attack
+  - past_tense
+
+behaviors:
+  source: builtin
+  limit: 2
+
+budget:
+  target_calls: 5
+
+reporting:
+  html: false
+
+out_dir: out/runs

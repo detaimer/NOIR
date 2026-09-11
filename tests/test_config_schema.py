@@ -32,6 +32,20 @@ def test_from_dict_builds_valid_config():
     assert cfg.budget == 42
 
 
+def test_endpoint_adapter_defaults_and_override():
+    d = _valid_dict()
+    cfg = cs.RunConfig.from_dict(d)
+    # 기본 어댑터는 http_openai
+    assert cfg.target.adapter == "http_openai"
+    # 명시하면 반영 (예: manual 타깃)
+    d2 = _valid_dict()
+    d2["target"] = {"base_url": "-", "model": "-", "adapter": "manual"}
+    del d2["judge"]  # manual 타깃과 self-judge 검증 무관하게
+    d2["detectors"] = ["refusal_match"]
+    cfg2 = cs.RunConfig.from_dict(d2)
+    assert cfg2.target.adapter == "manual"
+
+
 def test_detectors_parse_string_and_dict_forms():
     cfg = cs.RunConfig.from_dict(_valid_dict())
     assert cfg.detectors[0].name == "refusal_match"

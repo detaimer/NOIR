@@ -24,6 +24,7 @@ class EndpointConfig:
     model: str
     api_key_env: str | None = None
     name: str = ""
+    adapter: str = "http_openai"
 
     def identity(self) -> tuple[str, str]:
         """자기 채점 판정용 동일성 키 (base_url, model)."""
@@ -43,6 +44,7 @@ class EndpointConfig:
             model=model,
             api_key_env=d.get("api_key_env"),
             name=d.get("name", name),
+            adapter=d.get("adapter", "http_openai"),
         )
 
 

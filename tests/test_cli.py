@@ -18,3 +18,47 @@ def test_help_shows_usage() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "Usage" in result.stdout
+
+
+_CFG = """
+target: {base_url: "-", model: "-", adapter: "manual"}
+detectors: [refusal_match]
+techniques: [flip_attack, past_tense]
+behaviors: {source: builtin, limit: 2}
+budget: {target_calls: 5}
+reporting: {html: false}
+"""
+
+
+def _write_cfg(tmp_path, text=_CFG) -> str:
+    p = tmp_path / "run.yaml"
+    p.write_text(text, encoding="utf-8")
+    return str(p)
+
+
+def test_run_command_listed_in_help() -> None:
+    result = runner.invoke(app, ["--help"])
+    assert result.exit_code == 0
+    assert "run" in result.stdout
+
+
+def test_run_dry_run_prints_plan_without_executing(tmp_path) -> None:
+    result = runner.invoke(app, ["run", "-c", _write_cfg(tmp_path), "--dry-run"])
+    assert result.exit_code == 0
+    assert "flip_attack" in result.stdout
+    assert "dry-run" in result.stdout.lower()
+
+
+def test_run_dry_run_applies_override(tmp_path) -> None:
+    result = runner.invoke(
+        app,
+        ["run", "-c", _write_cfg(tmp_path), "--set", "budget.target_calls=99", "--dry-run"],
+    )
+    assert result.exit_code == 0
+    assert "99" in result.stdout
+
+
+def test_run_config_error_exits_nonzero(tmp_path) -> None:
+    bad = _CFG + '\njudge: {base_url: "-", model: "-"}\n'  # judge == target(자기 채점)
+    result = runner.invoke(app, ["run", "-c", _write_cfg(tmp_path, bad), "--dry-run"])
+    assert result.exit_code != 0

@@ -43,6 +43,10 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+# typer 관용구: Option/Argument 는 인자 기본값에서 호출하는 게 정석 → B008 예외.
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
+
 # import-linter 계약과 deptry 규칙은 서브패키지가 코드로 채워지는
 # 프로젝트 단계에서 보강한다 (스캐폴딩 단계에서는 생략).
 [tool.deptry]
