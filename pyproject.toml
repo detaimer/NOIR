@@ -10,6 +10,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "typer>=0.12",
+    "openai>=1.40",
+    "pyyaml>=6",
+    "jinja2>=3.1",
 ]
 
 [project.optional-dependencies]
@@ -28,7 +31,10 @@ packages = ["src/redteam"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -m 'not live'"
+markers = [
+    "live: 실 엔드포인트를 호출하는 테스트 (기본 실행에서 제외; `pytest -m live` 로만 실행)",
+]
 
 [tool.ruff]
 line-length = 100
