@@ -19,6 +19,12 @@ target:
   base_url: "-"
   model: "-"
 
+# target:
+#   adapter: http_openai
+#   base_url: "http://localhost:11434/v1"
+#   model: "gpt-oss:20b"
+#   api_key_env: "OLLAMA_API_KEY"
+
 # detectors[0] = primary(집계 기준). refusal_match 는 무모델·오프라인.
 detectors:
   - refusal_match

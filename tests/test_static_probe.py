@@ -76,9 +76,11 @@ def test_success_mirrors_judge(fake_adapter, fake_judge, judge_success: bool) ->
 def test_registry_factories_build_probes() -> None:
     from redteam.probes import PROBES
 
-    assert set(PROBES) == {"past_tense", "base64", "flip_attack", "many_shot"}
-    for key, factory in PROBES.items():
-        probe = factory()
+    # 정적 tier 4종이 등록돼 있어야 한다(반복형/멀티턴 probe 가 추가돼도 부분집합으로 유지).
+    static_keys = {"past_tense", "base64", "flip_attack", "many_shot"}
+    assert static_keys <= set(PROBES)
+    for key in static_keys:
+        probe = PROBES[key]()
         assert isinstance(probe, StaticProbe)
         assert probe.name == key
         assert probe.uses_judge is True

@@ -157,13 +157,13 @@ CyberSecEval식 별도 task-score 축; OT 전용 대량 데이터셋 저작(도�
 23. [ ] test_cli 확장 → `cli.py`에 `rt run -c cfg.yaml [overrides]`(주입 runner/`--dry-run`) — 완료: 명령 wired, help 노출, 기존 cli 테스트 green.
 
 **M9 PAIR**
-24. [ ] test_pair_probe → `probes/pair_probe.py`(fake attacker 제안, fake judge k회째 성공) — 완료: 성공시 중단, target_calls==k, attacker_calls==k, ≤B. `"pair"` 등록 + test_runner 확장.
+24. [x] test_pair_probe → `probes/pair_probe.py`(fake attacker 제안, fake judge k회째 성공) — 완료: 성공시 중단, target_calls==k, attacker_calls==k, ≤B. `"pair"` 등록 + test_runner 확장. 예산초과는 probe 가 삼키지 않고 `BudgetExceeded` 전파(runner 처리); attacker 부재 시 `AdapterError`.
 
 **M10 Crescendo + Manual 멀티턴**
-25. [ ] test_crescendo_probe → `probes/crescendo_probe.py`(conv 성장, 턴별 judge, 성공/max_turns 중단, target_calls==turns) — 완료: 멀티턴 상태 검증. `"crescendo"` 등록 + test_runner에 ManualAdapter(scripted) 경유 Crescendo run 추가로 manual 멀티턴 실증.
+25. [x] test_crescendo_probe → `probes/crescendo_probe.py`(conv 성장, 턴별 judge, 성공/max_turns 중단, target_calls==turns) — 완료: 멀티턴 상태 검증. `"crescendo"` 등록 + test_runner에 ManualAdapter(scripted) 경유 Crescendo run 추가로 manual 멀티턴 실증. runner 의 `BudgetExceeded` 흡수 경로(budget<max_turns)도 여기서 커버.
 
 **M11 Fair-ASR 마감**
-26. [ ] test_aggregate/test_terminal_table 확장: 동일 B에서 정적 vs PAIR vs Crescendo — 완료: 동일-B ASR + 평균calls 열 + efficiency 랭킹.
+26. [x] test_aggregate/test_terminal_table 확장: 동일 B에서 정적 vs PAIR vs Crescendo — 완료: 동일-B ASR + 평균calls 열 + efficiency 랭킹(aggregate/terminal_table 는 기존 로직으로 충족, 테스트만 확장).
 
 **M12 HTML 리포트(중심)**
 27. [ ] test_html_report → `reporting/html_report.py`(jinja2 렌더, 8섹션 + **위험도 히트맵 셀** + top3 + 드릴다운 transcript+judge3 + taxonomy + 합치도) — 완료: 섹션·히트맵 존재, runner 연동, test_runner에 report.html 생성 assert.
@@ -194,8 +194,9 @@ strong_reject:{...}]`, `behaviors: builtin|jbb|harmbench|<path>`, `techniques:[f
 
 ## Open questions (구현 중 확정)
 
-- **PAIR/Crescendo의 primary judge**: 반복 피드백에 `score`가 필요 → 반복형 실행 시 `strong_reject`를
-  detectors[0]로 두는 걸 가이드(이진 primary는 신호 약함). 기본 정책 확정 필요.
+- **PAIR/Crescendo의 primary judge** (확정, M9/M10): probe 는 이진 primary(`refusal_match` 등, `score=None`)에도
+  크래시 없이 동작하고 피드백은 점수를 "N/A"로 렌더한다 → `strong_reject`를 detectors[0]로 두면 반복 피드백이
+  풍부해져 **권장**이지만 **필수는 아니다**. 즉 정책은 "graceful degradation + strong_reject 권장".
 - **Manual 어댑터 sentinel**: 멀티라인 붙여넣기 종료 표식(단독 `.` vs EOF)과 인터럽트 처리 방식.
 - **LlamaGuard 버전/카테고리 맵**: 채팅 템플릿·S1..S13 맵을 생성자 파라미터로(버전마다 다름) — 기본 버전 지정.
 - **HTML 리포트 v1**: 만들어 본 뒤 사용자 피드백으로 레이아웃/강조 반복.
