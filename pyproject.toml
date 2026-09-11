@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "redteam"
+version = "0.1.0"
+description = "범용 블랙박스 LLM red-teaming MVP — 타깃 모델 취약성 파악 및 ASR 평가."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "import-linter>=2",
+    "deptry>=0.20",
+]
+
+[project.scripts]
+rt = "redteam.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/redteam"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+# import-linter 계약과 deptry 규칙은 서브패키지가 코드로 채워지는
+# 프로젝트 단계에서 보강한다 (스캐폴딩 단계에서는 생략).
+[tool.deptry]
+known_first_party = ["redteam"]

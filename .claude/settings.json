@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest:*)",
+      "Bash(pytest:*)",
+      "Bash(ruff check:*)",
+      "Bash(ruff format:*)",
+      "Bash(lint-imports:*)",
+      "Bash(deptry:*)",
+      "Bash(pip install -e .:*)"
+    ]
+  }
+}
