@@ -76,3 +76,29 @@ def test_empty_summary_does_not_crash():
     out = render_table(summarize([], None))
     assert isinstance(out, str)
     assert "technique" in out
+
+
+def test_three_tier_rows_ranked_by_asr():
+    """정적·PAIR·Crescendo 세 행이 모두 렌더되고 ASR 내림차순으로 정렬된다(M11)."""
+    attempts = [
+        _attempt("b1", "flip_attack", True, 1, (DetectionResult(True, "refusal_match"),)),
+        _attempt("b1", "flip_attack", False, 1, (DetectionResult(False, "refusal_match"),)),
+        _attempt("b2", "pair", True, 4, (DetectionResult(True, "refusal_match"),)),
+        _attempt("b2", "crescendo", True, 5, (DetectionResult(True, "refusal_match"),)),
+    ]
+    behaviors = [
+        Behavior(id="b1", prompt="p", domain="cyber"),
+        Behavior(id="b2", prompt="p", domain="ot_ics"),
+    ]
+    out = render_table(summarize(attempts, behaviors))
+    for tech in ("flip_attack", "pair", "crescendo"):
+        assert tech in out
+
+    lines = out.splitlines()
+
+    def row_index(name: str) -> int:
+        return next(i for i, ln in enumerate(lines) if ln.startswith(name))
+
+    # ASR desc: pair/crescendo(1.0) 가 flip_attack(0.5) 보다 위.
+    assert row_index("flip_attack") > row_index("pair")
+    assert row_index("flip_attack") > row_index("crescendo")

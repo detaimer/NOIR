@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from redteam.core import Probe
+from redteam.probes.crescendo_probe import CrescendoProbe
+from redteam.probes.pair_probe import PairProbe
 from redteam.probes.static_probe import StaticProbe
 from redteam.probes.transforms import (
     flip_attack,
@@ -20,10 +22,14 @@ PROBES: dict[str, Callable[[], Probe]] = {
     "base64": lambda: StaticProbe(to_base64, "base64"),
     "flip_attack": lambda: StaticProbe(flip_attack, "flip_attack"),
     "many_shot": lambda: StaticProbe(many_shot, "many_shot"),
+    "pair": lambda: PairProbe(),
+    "crescendo": lambda: CrescendoProbe(),
 }
 
 __all__ = [
     "StaticProbe",
+    "PairProbe",
+    "CrescendoProbe",
     "PROBES",
     "past_tense",
     "to_base64",

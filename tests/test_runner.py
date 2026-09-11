@@ -92,3 +92,81 @@ def test_adapter_error_becomes_attempt_error(tmp_path):
     a = result.attempts[0]
     assert a.error is not None
     assert a.success is False
+
+
+def test_pair_e2e(tmp_path, fake_adapter):
+    # 1라운드 거부 → 2라운드 응낙(refusal_match primary): PAIR 이 2회째 성공·중단.
+    target = fake_adapter(responses=["죄송하지만 도와드릴 수 없습니다", "물론이죠, 다음과 같이"])
+    attacker = fake_adapter(responses=["adv1", "adv2"])
+    result = runner.run(
+        _cfg(
+            techniques=["pair"],
+            behaviors={"source": "builtin", "limit": 1},
+            budget={"target_calls": 5},
+        ),
+        target=target,
+        attacker=attacker,
+        out_root=str(tmp_path),
+        timestamp="TS_PAIR",
+    )
+    a = result.attempts[0]
+    assert a.technique == "pair"
+    assert a.success is True
+    assert a.target_calls == 2  # counter 권위
+    assert a.attacker_calls == 2
+    assert a.judge_calls == 2
+
+
+def test_crescendo_e2e_via_manual_adapter(tmp_path, fake_adapter):
+    from redteam.adapters.manual_io import ManualIOAdapter
+
+    # Manual 타깃(사람 중계)로 멀티턴 Crescendo e2e — sentinel('.')로 턴 응답 종료.
+    scripted = iter(["죄송하지만 도와드릴 수 없습니다", ".", "물론이죠, 다음과 같습니다 ...", "."])
+    captured: list[str] = []
+    manual = ManualIOAdapter(
+        input_fn=lambda: next(scripted),
+        output_fn=captured.append,
+    )
+    attacker = fake_adapter(responses=["u1", "u2"])
+    result = runner.run(
+        _cfg(
+            techniques=["crescendo"],
+            behaviors={"source": "builtin", "limit": 1},
+            budget={"target_calls": 5},
+        ),
+        target=manual,
+        attacker=attacker,
+        out_root=str(tmp_path),
+        timestamp="TS_CRES",
+    )
+    a = result.attempts[0]
+    assert a.technique == "crescendo"
+    assert a.success is True
+    assert a.target_calls == 2
+    assert a.attacker_calls == 2
+    # 대화가 멀티턴으로 성장했음을 Manual 어댑터 출력으로 실증(user 누적 + assistant 등장).
+    assert sum(1 for c in captured if c.startswith("user:")) >= 3
+    assert any(c.startswith("assistant:") for c in captured)
+
+
+def test_budget_exhausted_crescendo(tmp_path, fake_adapter):
+    # Crescendo(max_turns=5)를 budget B=2 로 제한 → 3번째 호출서 BudgetExceeded 를 runner 흡수.
+    target = fake_adapter(responses="죄송하지만 도와드릴 수 없습니다")  # 항상 거부
+    attacker = fake_adapter(responses=["u1", "u2", "u3", "u4", "u5"])
+    result = runner.run(
+        _cfg(
+            techniques=["crescendo"],
+            behaviors={"source": "builtin", "limit": 1},
+            budget={"target_calls": 2},
+        ),
+        target=target,
+        attacker=attacker,
+        out_root=str(tmp_path),
+        timestamp="TS_BUDGET",
+    )
+    a = result.attempts[0]
+    assert a.budget_exhausted is True
+    assert a.target_calls == 2
+    assert a.success is False
+    assert a.error is not None
+    assert a.turns == ()
