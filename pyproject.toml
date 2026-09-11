@@ -10,6 +10,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "typer>=0.12",
+    "openai>=1.40",
+    "pyyaml>=6",
+    "jinja2>=3.1",
 ]
 
 [project.optional-dependencies]
@@ -28,7 +31,10 @@ packages = ["src/redteam"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -m 'not live'"
+markers = [
+    "live: 실 엔드포인트를 호출하는 테스트 (기본 실행에서 제외; `pytest -m live` 로만 실행)",
+]
 
 [tool.ruff]
 line-length = 100
@@ -36,6 +42,10 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+# typer 관용구: Option/Argument 는 인자 기본값에서 호출하는 게 정석 → B008 예외.
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
 
 # import-linter 계약과 deptry 규칙은 서브패키지가 코드로 채워지는
 # 프로젝트 단계에서 보강한다 (스캐폴딩 단계에서는 생략).
