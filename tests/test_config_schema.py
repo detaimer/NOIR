@@ -121,3 +121,19 @@ def test_techniques_non_mapping_params_raises():
     d["techniques"] = [{"pair": ["not", "a", "map"]}]
     with pytest.raises(errs.ConfigError):
         cs.RunConfig.from_dict(d)
+
+
+# --- M13: 외부 behavior 셋(jbb/harmbench)의 로컬 파일 경로 ---
+
+
+def test_behaviors_spec_carries_path():
+    d = _valid_dict()
+    d["behaviors"] = {"source": "harmbench", "path": "data/harmbench.csv", "limit": 10}
+    cfg = cs.RunConfig.from_dict(d)
+    assert cfg.behaviors.source == "harmbench"
+    assert cfg.behaviors.path == "data/harmbench.csv"
+    assert cfg.behaviors.limit == 10
+
+
+def test_behaviors_path_defaults_to_none():
+    assert cs.RunConfig.from_dict(_valid_dict()).behaviors.path is None

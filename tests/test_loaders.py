@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -64,6 +65,128 @@ def test_jsonl_domain_and_limit_filter(tmp_path):
 
 def test_unknown_source_raises():
     with pytest.raises(ConfigError):
+        loaders.load_behaviors(BehaviorSpec(source="nope"))
+
+
+# --- M13: jbb / HarmBench 로더 (로컬 파일만 — 네트워크 다운로드 없음) ---
+
+FIXTURES = Path(__file__).parent / "fixtures"
+JBB_CSV = FIXTURES / "jbb_sample.csv"
+HARMBENCH_CSV = FIXTURES / "harmbench_sample.csv"
+
+
+def _by_id(behaviors):
+    return {b.id: b for b in behaviors}
+
+
+def test_jbb_requires_local_path():
+    """네트워크 다운로드를 하지 않으므로 path 가 없으면 안내와 함께 거부."""
+    with pytest.raises(ConfigError, match="path"):
         loaders.load_behaviors(BehaviorSpec(source="jbb"))
-    with pytest.raises(ConfigError):
+
+
+def test_harmbench_requires_local_path():
+    with pytest.raises(ConfigError, match="path"):
         loaders.load_behaviors(BehaviorSpec(source="harmbench"))
+
+
+def test_missing_file_raises():
+    with pytest.raises(ConfigError):
+        loaders.load_behaviors(BehaviorSpec(source="jbb", path="/nonexistent/jbb.csv"))
+
+
+def test_jbb_parses_rows():
+    out = loaders.load_behaviors(BehaviorSpec(source="jbb", path=str(JBB_CSV)))
+    assert len(out) == 3
+    assert all(b.source == "jbb" for b in out)
+    b = _by_id(out)["jbb_1"]
+    assert b.prompt.startswith("Develop malware")
+    assert b.subcat == "Disable antivirus"
+
+
+def test_jbb_maps_category_to_domain():
+    out = _by_id(loaders.load_behaviors(BehaviorSpec(source="jbb", path=str(JBB_CSV))))
+    assert out["jbb_1"].domain == "cyber"  # Malware/Hacking → 내부 도메인
+    assert out["jbb_2"].domain == "privacy"
+    # 대응 도메인이 없는 카테고리는 슬러그로 보존(정보 손실 방지)
+    assert out["jbb_0"].domain == "harassment_discrimination"
+
+
+def test_jbb_preserves_original_taxonomy_as_tags():
+    out = _by_id(loaders.load_behaviors(BehaviorSpec(source="jbb", path=str(JBB_CSV))))
+    assert "jbb:category:Malware/Hacking" in out["jbb_1"].tags
+    assert "jbb:source:AdvBench" in out["jbb_1"].tags
+    assert "jbb:category:Privacy" in out["jbb_2"].tags
+
+
+def test_harmbench_parses_rows():
+    out = loaders.load_behaviors(BehaviorSpec(source="harmbench", path=str(HARMBENCH_CSV)))
+    assert len(out) == 3
+    assert all(b.source == "harmbench" for b in out)
+    b = _by_id(out)["hacking_atm_machine"]  # BehaviorID 를 id 로 사용
+    assert b.prompt.startswith("Give detailed instructions")
+    assert b.subcat == "cybercrime_intrusion"
+
+
+def test_harmbench_maps_semantic_category_to_domain():
+    out = _by_id(loaders.load_behaviors(BehaviorSpec(source="harmbench", path=str(HARMBENCH_CSV))))
+    assert out["hacking_atm_machine"].domain == "cyber"
+    assert out["chemical_warfare_agent_reaction"].domain == "cbrn"
+    assert out["persuasive_article_election"].domain == "misinfo"
+
+
+def test_harmbench_preserves_tags_and_categories():
+    out = _by_id(loaders.load_behaviors(BehaviorSpec(source="harmbench", path=str(HARMBENCH_CSV))))
+    b = out["persuasive_article_election"]
+    assert "harmbench:functional:standard" in b.tags
+    assert "harmbench:semantic:misinformation_disinformation" in b.tags
+    assert "harmbench:tag:hash_check" in b.tags
+    # Tags 가 빈 칸이면 tag 항목을 만들지 않는다
+    assert not any(t.startswith("harmbench:tag:") for t in out["hacking_atm_machine"].tags)
+
+
+def test_harmbench_contextual_behavior_embeds_context():
+    """contextual behavior 는 ContextString 이 프롬프트의 일부 — 빠지면 과제가 성립하지 않는다."""
+    out = _by_id(loaders.load_behaviors(BehaviorSpec(source="harmbench", path=str(HARMBENCH_CSV))))
+    b = out["chemical_warfare_agent_reaction"]
+    assert "A reaction of X with Y under reflux yields compound Z." in b.prompt
+    assert "Determine what chemical warfare agent" in b.prompt
+    assert "harmbench:functional:contextual" in b.tags
+
+
+def test_external_sources_respect_domain_and_limit_filters():
+    spec = BehaviorSpec(source="jbb", path=str(JBB_CSV), domain="cyber")
+    out = loaders.load_behaviors(spec)
+    assert [b.id for b in out] == ["jbb_1"]
+
+    spec = BehaviorSpec(source="harmbench", path=str(HARMBENCH_CSV), limit=2)
+    assert len(loaders.load_behaviors(spec)) == 2
+
+
+def test_jbb_accepts_json_rows(tmp_path):
+    """일부 배포본은 CSV 대신 JSON — 같은 컬럼이면 동일하게 파싱된다."""
+    path = tmp_path / "jbb.json"
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "Index": 7,
+                    "Goal": "g",
+                    "Behavior": "b",
+                    "Category": "Privacy",
+                    "Source": "Original",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    out = loaders.load_behaviors(BehaviorSpec(source="jbb", path=str(path)))
+    assert out[0].id == "jbb_7"
+    assert out[0].domain == "privacy"
+
+
+def test_missing_required_column_raises(tmp_path):
+    path = tmp_path / "bad.csv"
+    path.write_text("Index,Category\n0,Privacy\n", encoding="utf-8")
+    with pytest.raises(ConfigError):
+        loaders.load_behaviors(BehaviorSpec(source="jbb", path=str(path)))

@@ -1,7 +1,7 @@
 """내장 시드 behavior 팩 — 소규모·오프라인·**비운영적 추상 레이블**.
 
 각 항목은 특정 유해요청의 *범주* 를 3인칭으로 서술한 레드팀 테스트 픽스처(데이터)일 뿐,
-운영 가능한 세부 지시가 아니다. 실제 대규모 셋은 jbb/harmbench 로더(M13)나 사용자 파일로 공급한다.
+운영 가능한 세부 지시가 아니다. 실제 대규모 셋은 jbb/harmbench 로더나 사용자 파일로 공급한다.
 taxonomy 태그는 OWASP LLM Top10 / MITRE ATT&CK / ATT&CK-ICS / ATLAS crosswalk 를 예시한다.
 """
 

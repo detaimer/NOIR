@@ -58,11 +58,15 @@ class DetectorSpec:
 
 @dataclass(frozen=True)
 class BehaviorSpec:
-    """behaviors 소스 + 필터."""
+    """behaviors 소스 + 필터.
+
+    `path` 는 외부 셋(jbb/harmbench)의 **로컬 파일** 경로 — 네트워크 다운로드는 하지 않는다.
+    """
 
     source: str
     domain: str | None = None
     limit: int | None = None
+    path: str | None = None
 
     @classmethod
     def from_config(cls, value: Any) -> BehaviorSpec:
@@ -75,6 +79,7 @@ class BehaviorSpec:
                 source=value["source"],
                 domain=value.get("domain"),
                 limit=value.get("limit"),
+                path=value.get("path"),
             )
         raise ConfigError("behaviors 는 문자열 또는 매핑이어야 합니다")
 
