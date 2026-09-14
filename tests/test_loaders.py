@@ -190,3 +190,46 @@ def test_missing_required_column_raises(tmp_path):
     path.write_text("Index,Category\n0,Privacy\n", encoding="utf-8")
     with pytest.raises(ConfigError):
         loaders.load_behaviors(BehaviorSpec(source="jbb", path=str(path)))
+
+
+def test_json_object_without_rows_raises_with_keys(tmp_path):
+    """dict 인데 행 배열을 못 찾으면 조용히 0건이 되지 않고, 실제 최상위 키를 알려준다."""
+    path = tmp_path / "jbb.json"
+    path.write_text(
+        json.dumps({"items": [{"Goal": "g", "Category": "Privacy"}], "meta": 1}), encoding="utf-8"
+    )
+    with pytest.raises(ConfigError, match="items"):
+        loaders.load_behaviors(BehaviorSpec(source="jbb", path=str(path)))
+
+
+@pytest.mark.parametrize("key", ["data", "rows", "behaviors"])
+def test_json_object_row_array_keys(tmp_path, key):
+    """배포본마다 감싸는 키가 다르다 — 흔한 이름 세 가지를 받아들인다."""
+    path = tmp_path / "jbb.json"
+    path.write_text(
+        json.dumps({key: [{"Index": 3, "Goal": "g", "Category": "Privacy"}]}), encoding="utf-8"
+    )
+    assert [b.id for b in loaders.load_behaviors(BehaviorSpec(source="jbb", path=str(path)))] == [
+        "jbb_3"
+    ]
+
+
+def test_empty_file_raises(tmp_path):
+    """헤더만 있는 CSV 도 0건 — 시도 0건짜리 리포트가 나오기 전에 막는다."""
+    path = tmp_path / "empty.csv"
+    path.write_text("Index,Goal,Category\n", encoding="utf-8")
+    with pytest.raises(ConfigError, match="행이 없습니다"):
+        loaders.load_behaviors(BehaviorSpec(source="jbb", path=str(path)))
+
+
+def test_empty_json_list_raises(tmp_path):
+    path = tmp_path / "empty.json"
+    path.write_text("[]", encoding="utf-8")
+    with pytest.raises(ConfigError, match="행이 없습니다"):
+        loaders.load_behaviors(BehaviorSpec(source="harmbench", path=str(path)))
+
+
+def test_domain_filter_yielding_zero_is_not_an_error():
+    """파일은 정상인데 필터가 0건인 것은 오류가 아니다 (빈 리스트 반환)."""
+    spec = BehaviorSpec(source="jbb", path=str(JBB_CSV), domain="nonexistent_domain")
+    assert loaders.load_behaviors(spec) == []

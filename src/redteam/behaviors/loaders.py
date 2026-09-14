@@ -73,8 +73,27 @@ def _load_jsonl(path: Path) -> list[Behavior]:
     return out
 
 
+def _rows_from_json(loaded: Any, path: Path) -> list:
+    """JSON 최상위에서 행 배열을 찾는다. 못 찾으면 조용히 비우지 않고 알린다."""
+    if isinstance(loaded, list):
+        return loaded
+    if isinstance(loaded, dict):
+        for key in ("data", "rows", "behaviors"):
+            if isinstance(loaded.get(key), list):
+                return loaded[key]
+        raise ConfigError(
+            f"{path}: 행 배열을 찾을 수 없습니다. 최상위가 리스트이거나 "
+            f"data/rows/behaviors 중 하나여야 합니다 (발견한 키: {sorted(loaded)})"
+        )
+    raise ConfigError(f"{path}: JSON 최상위는 리스트 또는 매핑이어야 합니다")
+
+
 def _read_rows(path: Path) -> list[dict[str, Any]]:
-    """CSV/JSON/JSONL 을 공통 '행 dict 리스트' 로 읽는다 (키는 소문자 정규화)."""
+    """CSV/JSON/JSONL 을 공통 '행 dict 리스트' 로 읽는다 (키는 소문자 정규화).
+
+    행이 0건이면 ConfigError — 시도 0건짜리 실행·리포트가 나오고 나서 원인을 찾는 것보다
+    여기서 멈추는 편이 낫다. (필터로 0건이 되는 것은 오류가 아니며 load_behaviors 가 처리)
+    """
     suffix = path.suffix.lower()
     try:
         if suffix == ".csv":
@@ -85,10 +104,11 @@ def _read_rows(path: Path) -> list[dict[str, Any]]:
                 json.loads(ln) for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()
             ]
         else:
-            loaded = json.loads(path.read_text(encoding="utf-8"))
-            raw = loaded if isinstance(loaded, list) else loaded.get("data", [])
+            raw = _rows_from_json(json.loads(path.read_text(encoding="utf-8")), path)
     except (json.JSONDecodeError, csv.Error, UnicodeDecodeError) as e:
         raise ConfigError(f"{path} 파싱 실패: {e}") from e
+    if not raw:
+        raise ConfigError(f"{path}: behavior 행이 없습니다 (빈 파일이거나 헤더만 있습니다)")
     return [{str(k).strip().lower(): v for k, v in row.items() if k is not None} for row in raw]
 
 
