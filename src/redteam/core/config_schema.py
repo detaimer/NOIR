@@ -84,6 +84,33 @@ class BehaviorSpec:
         raise ConfigError("behaviors 는 문자열 또는 매핑이어야 합니다")
 
 
+def _require_int(value: Any, *, name: str, minimum: int) -> int:
+    """기법 param 을 정수로 파싱하고 하한을 강제한다 (bool 은 정수로 치지 않는다)."""
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise ConfigError(f"'{name}' 는 정수여야 합니다: {value!r}")
+    try:
+        parsed = int(value)
+    except ValueError as e:
+        raise ConfigError(f"'{name}' 는 정수여야 합니다: {value!r}") from e
+    if parsed < minimum:
+        raise ConfigError(f"'{name}' 는 {minimum} 이상이어야 합니다: {parsed}")
+    return parsed
+
+
+def require_positive_int(value: Any, *, name: str) -> int:
+    """기법 param 을 1 이상 정수로 검증한다 (퇴화 설정을 진입부에서 ConfigError 로 거절).
+
+    probe 가 0/음수/비정수 param 을 그대로 쓰면 조용한 오동작(호출 0회짜리 '성공' 등)이나
+    bare assert 크래시가 되므로, 계산 전에 여기서 막는다.
+    """
+    return _require_int(value, name=name, minimum=1)
+
+
+def require_non_negative_int(value: Any, *, name: str) -> int:
+    """기법 param 을 0 이상 정수로 검증한다 (0 이 '기능 끔' 을 뜻하는 설정용)."""
+    return _require_int(value, name=name, minimum=0)
+
+
 def _parse_detector(entry: Any) -> DetectorSpec:
     if isinstance(entry, str):
         return DetectorSpec(name=entry)

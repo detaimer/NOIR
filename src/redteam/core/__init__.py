@@ -10,6 +10,8 @@ from redteam.core.config_schema import (
     EndpointConfig,
     RunConfig,
     TechniqueSpec,
+    require_non_negative_int,
+    require_positive_int,
 )
 from redteam.core.errors import (
     AdapterError,
@@ -50,6 +52,8 @@ __all__ = [
     "EndpointConfig",
     "RunConfig",
     "TechniqueSpec",
+    "require_non_negative_int",
+    "require_positive_int",
     # errors
     "AdapterError",
     "BudgetExceeded",

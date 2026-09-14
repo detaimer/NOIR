@@ -15,6 +15,7 @@ from redteam.core import (  # noqa: E402
     BudgetedTarget,
     BudgetExceeded,
     CallCounter,
+    ConfigError,
     ProbeContext,
 )
 from redteam.probes.pair_probe import PairProbe  # noqa: E402
@@ -220,3 +221,29 @@ def test_budget_exceeded_propagates(fake_adapter, fake_judge) -> None:
     with pytest.raises(BudgetExceeded):
         PairProbe().run(_behavior(), ctx)
     assert counter.count == 2
+
+
+def test_rejects_non_positive_stream_and_iteration_counts(fake_adapter, fake_judge) -> None:
+    """퇴화 param 은 bare assert 로 터지지 않고 ConfigError 로 거절된다."""
+    for params in ({"n_iterations": 0}, {"n_streams": 0}, {"n_streams": -1}):
+        ctx, _ = _ctx(
+            fake_adapter("r"),
+            fake_judge(success=False),
+            fake_adapter(_json("p")),
+            fake_adapter("Rating: [[1]]"),
+            params=params,
+        )
+        with pytest.raises(ConfigError):
+            PairProbe().run(_behavior(), ctx)
+
+
+def test_rejects_non_integer_params(fake_adapter, fake_judge) -> None:
+    ctx, _ = _ctx(
+        fake_adapter("r"),
+        fake_judge(success=False),
+        fake_adapter(_json("p")),
+        fake_adapter("Rating: [[1]]"),
+        params={"n_iterations": "many"},
+    )
+    with pytest.raises(ConfigError):
+        PairProbe().run(_behavior(), ctx)

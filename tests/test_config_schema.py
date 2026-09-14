@@ -137,3 +137,46 @@ def test_behaviors_spec_carries_path():
 
 def test_behaviors_path_defaults_to_none():
     assert cs.RunConfig.from_dict(_valid_dict()).behaviors.path is None
+
+
+# --- 기법 param 검증 헬퍼 (probe 진입부에서 사용) ---
+
+
+def test_require_positive_int_passes_through():
+    assert cs.require_positive_int(3, name="pair.n_streams") == 3
+    assert cs.require_positive_int("4", name="pair.n_streams") == 4
+
+
+def test_require_positive_int_rejects_zero_and_negative():
+    for bad in (0, -1):
+        with pytest.raises(errs.ConfigError, match="1 이상"):
+            cs.require_positive_int(bad, name="pair.n_iterations")
+
+
+def test_require_positive_int_rejects_non_integer():
+    for bad in ("x", None, 1.5):
+        with pytest.raises(errs.ConfigError, match="정수"):
+            cs.require_positive_int(bad, name="crescendo.max_turns")
+
+
+def test_require_positive_int_message_names_the_setting():
+    with pytest.raises(errs.ConfigError, match="crescendo.max_turns"):
+        cs.require_positive_int(0, name="crescendo.max_turns")
+
+
+def test_require_non_negative_int_allows_zero():
+    assert cs.require_non_negative_int(0, name="crescendo.max_backtracks") == 0
+    assert cs.require_non_negative_int("2", name="crescendo.max_backtracks") == 2
+
+
+def test_require_non_negative_int_rejects_negative_and_non_integer():
+    with pytest.raises(errs.ConfigError, match="0 이상"):
+        cs.require_non_negative_int(-1, name="crescendo.max_backtracks")
+    with pytest.raises(errs.ConfigError, match="정수"):
+        cs.require_non_negative_int("x", name="crescendo.max_backtracks")
+
+
+def test_bool_is_not_accepted_as_int():
+    """YAML 의 `true` 가 1 로 조용히 통과하면 설정 오타를 놓친다."""
+    with pytest.raises(errs.ConfigError, match="정수"):
+        cs.require_positive_int(True, name="pair.n_streams")

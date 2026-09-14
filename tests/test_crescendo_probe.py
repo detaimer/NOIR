@@ -15,6 +15,7 @@ from redteam.core import (  # noqa: E402
     BudgetedTarget,
     BudgetExceeded,
     CallCounter,
+    ConfigError,
     ProbeContext,
     Role,
 )
@@ -100,7 +101,7 @@ def test_conversation_grows_and_roles_alternate(fake_adapter, fake_judge) -> Non
     assert turn2_msgs[0].content == "Q1" and turn2_msgs[-1].content == "Q2"
 
 
-def test_target_receives_generated_question(fake_adapter, fake_judge) -> None:
+def test_target_receives_generated_q(fake_adapter, fake_judge) -> None:
     target = fake_adapter(["r1"])
     ctx, _ = _ctx(
         target,
@@ -223,3 +224,30 @@ def test_success_from_primary_judge(fake_adapter, fake_judge) -> None:
     attempt = CrescendoProbe().run(_behavior(), ctx)
     assert attempt.success is True
     assert attempt.detections[1].judge_name == "crescendo_objective"
+
+
+def test_rejects_non_positive_max_turns(fake_adapter, fake_judge) -> None:
+    """max_turns=0 은 0회 호출 + 빈 응답으로 '성공' 을 만들 수 있어 ASR 을 오염시킨다 → 거절."""
+    ctx, _ = _ctx(
+        fake_adapter("r"),
+        fake_judge(success=True),
+        fake_adapter(_q("q")),
+        fake_adapter('{"score_value": "10"}'),
+        max_turns=0,
+        params={},
+    )
+    with pytest.raises(ConfigError):
+        CrescendoProbe().run(_behavior(), ctx)
+
+
+def test_rejects_negative_max_backtracks(fake_adapter, fake_judge) -> None:
+    ctx, _ = _ctx(
+        fake_adapter("r"),
+        fake_judge(success=False),
+        fake_adapter(_q("q")),
+        fake_adapter('{"score_value": "10"}'),
+        max_turns=2,
+        params={"max_backtracks": -1},
+    )
+    with pytest.raises(ConfigError):
+        CrescendoProbe().run(_behavior(), ctx)
