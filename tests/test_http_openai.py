@@ -23,7 +23,7 @@ class _FakeCompletions:
 
     def create(self, **kwargs: object) -> object:
         self._outer.calls.append(kwargs)
-        return _FakeResponse(self._outer.reply)
+        return _FakeResponse(self._outer.reply, self._outer.reasoning)
 
 
 class _FakeChat:
@@ -32,27 +32,31 @@ class _FakeChat:
 
 
 class _FakeClient:
-    """choices[0].message.content 를 돌려주는 최소 stub 클라이언트."""
+    """choices[0].message 의 content(+reasoning) 를 돌려주는 최소 stub 클라이언트."""
 
-    def __init__(self, reply: str = "FAKE_REPLY") -> None:
+    def __init__(self, reply: str | None = "FAKE_REPLY", reasoning: str | None = None) -> None:
         self.reply = reply
+        self.reasoning = reasoning
         self.calls: list[dict] = []
         self.chat = _FakeChat(self)
 
 
 class _FakeMessage:
-    def __init__(self, content: str) -> None:
+    """reasoning 을 지정 가능한 message stub (reasoning 기본 None → 기존 동작 불변)."""
+
+    def __init__(self, content: str | None, reasoning: str | None = None) -> None:
         self.content = content
+        self.reasoning = reasoning
 
 
 class _FakeChoice:
-    def __init__(self, content: str) -> None:
-        self.message = _FakeMessage(content)
+    def __init__(self, content: str | None, reasoning: str | None = None) -> None:
+        self.message = _FakeMessage(content, reasoning)
 
 
 class _FakeResponse:
-    def __init__(self, content: str) -> None:
-        self.choices = [_FakeChoice(content)]
+    def __init__(self, content: str | None, reasoning: str | None = None) -> None:
+        self.choices = [_FakeChoice(content, reasoning)]
 
 
 class _RaisingCompletions:
@@ -133,3 +137,62 @@ def test_name_defaults_to_http_model() -> None:
 def test_name_override() -> None:
     adapter = HttpOpenAIAdapter(model="gpt-x", client=_FakeClient(), name="target")
     assert adapter.name == "target"
+
+
+# --- reasoning 폴백 (gpt-oss 등 reasoning 모델: content 비면 reasoning 채널 사용) ---
+
+
+def test_content_empty_falls_back_to_reasoning() -> None:
+    client = _FakeClient(reply="", reasoning="REASONED")
+    adapter = HttpOpenAIAdapter(model="m1", client=client)
+    assert adapter.generate("x") == "REASONED"
+
+
+def test_content_whitespace_falls_back_to_reasoning() -> None:
+    client = _FakeClient(reply="  \n ", reasoning="REASONED")
+    adapter = HttpOpenAIAdapter(model="m1", client=client)
+    assert adapter.generate("x") == "REASONED"
+
+
+def test_content_none_falls_back_to_reasoning() -> None:
+    client = _FakeClient(reply=None, reasoning="REASONED")
+    adapter = HttpOpenAIAdapter(model="m1", client=client)
+    assert adapter.generate("x") == "REASONED"
+
+
+def test_nonempty_content_ignores_reasoning() -> None:
+    # 실제 거부("I can't help…")는 non-empty content → reasoning(사고과정) 무시.
+    client = _FakeClient(reply="REAL", reasoning="SHOULD_BE_IGNORED")
+    adapter = HttpOpenAIAdapter(model="m1", client=client)
+    assert adapter.generate("x") == "REAL"
+
+
+def test_both_empty_returns_empty_string() -> None:
+    client = _FakeClient(reply=None, reasoning="   ")
+    adapter = HttpOpenAIAdapter(model="m1", client=client)
+    assert adapter.generate("x") == ""
+
+
+def test_missing_reasoning_attr_returns_empty() -> None:
+    # reasoning 속성 자체가 없는 응답(비-reasoning 모델)에서 content 빔 → "" (getattr 기본값 경로).
+    class _NoReasoningMessage:
+        content = ""
+
+    class _NoReasoningChoice:
+        message = _NoReasoningMessage()
+
+    class _NoReasoningResponse:
+        choices = [_NoReasoningChoice()]
+
+    class _NoReasoningCompletions:
+        def create(self, **kwargs: object) -> object:
+            return _NoReasoningResponse()
+
+    class _NoReasoningChat:
+        completions = _NoReasoningCompletions()
+
+    class _NoReasoningClient:
+        chat = _NoReasoningChat()
+
+    adapter = HttpOpenAIAdapter(model="m1", client=_NoReasoningClient())
+    assert adapter.generate("x") == ""

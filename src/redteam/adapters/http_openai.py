@@ -39,9 +39,23 @@ class HttpOpenAIAdapter:
         return self._create(payload)
 
     def _create(self, messages: list[dict[str, str]]) -> str:
-        """실제 클라이언트 호출; 모든 예외를 AdapterError 로 래핑한다."""
+        """실제 클라이언트 호출; 모든 예외를 AdapterError 로 래핑한다.
+
+        content 가 비면(reasoning 모델이 사고과정 채널에만 답을 남기는 경우) reasoning 으로
+        폴백한다. content 가 non-blank 면 그대로 쓰므로 실제 거부("I can't…")는 폴백하지 않는다.
+        content·reasoning 이 모두 비면 "" 를 반환한다(None 반환 방지).
+        """
         try:
             resp = self.client.chat.completions.create(model=self.model, messages=messages)
-            return resp.choices[0].message.content
+            message = resp.choices[0].message
+            return _first_nonblank(message.content, getattr(message, "reasoning", None))
         except Exception as exc:
             raise AdapterError(f"{self.name} chat.completions failed: {exc}") from exc
+
+
+def _first_nonblank(*values: str | None) -> str:
+    """앞에서부터 공백-only 가 아닌 첫 문자열을 반환; 모두 비면 ""."""
+    for v in values:
+        if v is not None and v.strip():
+            return v
+    return ""

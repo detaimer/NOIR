@@ -16,7 +16,7 @@ target:
 attacker:
   adapter: http_openai
   base_url: "http://localhost:11434/v1"
-  model: "gpt-oss:20b"
+  model: "dolphin3:8b"
   api_key_env: "OLLAMA_API_KEY"
 
 # judge 엔드포인트 — PAIR(1~10)·Crescendo(refusal+0~100)의 원본 judge 및 LLM detector 가 사용.
