@@ -56,7 +56,7 @@ def _parse_overrides(items: list[str] | None) -> dict[str, object]:
 def _plan_text(cfg: RunConfig, n_behaviors: int) -> str:
     """실행 계획 요약(dry-run·헤더용)."""
     detectors = ", ".join(d.name for d in cfg.detectors)
-    techniques = ", ".join(cfg.techniques)
+    techniques = ", ".join(t.name for t in cfg.techniques)
     return (
         "실행 계획:\n"
         f"  techniques : {techniques}\n"

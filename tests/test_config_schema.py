@@ -28,7 +28,7 @@ def test_from_dict_builds_valid_config():
     assert cfg.target.api_key_env == "T_KEY"
     assert cfg.judge is not None and cfg.judge.model == "judge-model"
     assert cfg.attacker is not None and cfg.attacker.api_key_env is None
-    assert cfg.techniques == ("flip_attack", "pair")
+    assert tuple(t.name for t in cfg.techniques) == ("flip_attack", "pair")
     assert cfg.budget == 42
 
 
@@ -97,3 +97,27 @@ def test_no_judge_endpoint_is_ok():
     d["detectors"] = ["refusal_match"]  # 엔드포인트 불필요 judge 만
     cfg = cs.RunConfig.from_dict(d)
     assert cfg.judge is None
+
+
+def test_techniques_parse_string_and_dict_forms():
+    d = _valid_dict()
+    d["techniques"] = ["flip_attack", {"pair": {"n_streams": 3, "n_iterations": 2}}]
+    cfg = cs.RunConfig.from_dict(d)
+    assert cfg.techniques[0].name == "flip_attack"
+    assert cfg.techniques[0].params == {}
+    assert cfg.techniques[1].name == "pair"
+    assert cfg.techniques[1].params == {"n_streams": 3, "n_iterations": 2}
+
+
+def test_techniques_malformed_entry_raises():
+    d = _valid_dict()
+    d["techniques"] = [{"a": {}, "b": {}}]  # 단일 키가 아님
+    with pytest.raises(errs.ConfigError):
+        cs.RunConfig.from_dict(d)
+
+
+def test_techniques_non_mapping_params_raises():
+    d = _valid_dict()
+    d["techniques"] = [{"pair": ["not", "a", "map"]}]
+    with pytest.raises(errs.ConfigError):
+        cs.RunConfig.from_dict(d)

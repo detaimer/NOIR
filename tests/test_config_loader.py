@@ -29,7 +29,7 @@ def test_load_config_returns_cfg_and_raw(tmp_path):
     assert isinstance(cfg, RunConfig)
     assert cfg.budget == 7
     assert cfg.target.model == "tm"
-    assert cfg.techniques == ("flip_attack",)
+    assert tuple(t.name for t in cfg.techniques) == ("flip_attack",)
     assert raw["target"]["model"] == "tm"  # 스냅샷용 원본 dict
 
 

@@ -92,12 +92,32 @@ def _parse_detector(entry: Any) -> DetectorSpec:
 
 
 @dataclass(frozen=True)
+class TechniqueSpec:
+    """실행할 공격 기법 하나 — 이름 + 기법별 파라미터(DetectorSpec 과 동일한 형태)."""
+
+    name: str
+    params: dict[str, Any] = field(default_factory=dict)
+
+
+def _parse_technique(entry: Any) -> TechniqueSpec:
+    if isinstance(entry, str):
+        return TechniqueSpec(name=entry)
+    if isinstance(entry, dict) and len(entry) == 1:
+        name = next(iter(entry))
+        params = entry[name] or {}
+        if not isinstance(params, dict):
+            raise ConfigError(f"technique '{name}' 파라미터는 매핑이어야 합니다")
+        return TechniqueSpec(name=name, params=dict(params))
+    raise ConfigError(f"technique 항목 형식 오류: {entry!r}")
+
+
+@dataclass(frozen=True)
 class RunConfig:
     """한 번의 `rt run` 실행 설정 (검증 완료된 불변 값)."""
 
     target: EndpointConfig
     detectors: tuple[DetectorSpec, ...]
-    techniques: tuple[str, ...]
+    techniques: tuple[TechniqueSpec, ...]
     behaviors: BehaviorSpec
     budget: int
     judge: EndpointConfig | None = None
@@ -123,7 +143,7 @@ class RunConfig:
             )
 
         detectors = tuple(_parse_detector(e) for e in d.get("detectors", []))
-        techniques = tuple(d.get("techniques", []))
+        techniques = tuple(_parse_technique(e) for e in d.get("techniques", []))
         behaviors = BehaviorSpec.from_config(d.get("behaviors", "builtin"))
         reporting = d.get("reporting", {}) or {}
         budget_cfg = d.get("budget", {}) or {}

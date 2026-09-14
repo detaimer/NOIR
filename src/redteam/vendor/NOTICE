@@ -1,0 +1,23 @@
+redteam — vendored third-party prompt assets
+=============================================
+
+This directory (`src/redteam/vendor/`) contains attack/judge PROMPTS and
+judge/scale definitions copied **byte-verbatim** from the original authors'
+public repositories, so that the PAIR and Crescendo techniques in `redteam`
+use the authors' actual prompts rather than a paraphrase.
+
+Only prompt/data assets are vendored here. The attack *loops* are re-implemented
+against redteam's own adapter contract (see `probes/pair_probe.py`,
+`probes/crescendo_probe.py`); redteam does NOT import, depend on, or bundle the
+upstream Python packages.
+
+Each subdirectory keeps the upstream project's original LICENSE and a
+PROVENANCE.md recording the source repository, the exact pinned commit, the
+upstream file each asset came from, its sha256, and any transformation.
+
+  pair/       — PAIR "Jailbreaking Black Box LLMs in Twenty Queries"
+                (Chao, Robey, Dobriban, Hassani, Pappas, Wong, arXiv:2310.08419)
+                from patrickrchao/JailbreakingLLMs — MIT, Copyright (c) 2023 PAIR Team
+  crescendo/  — Crescendo "Great, Now Write an Article About That"
+                (Russinovich, Salem, Eldan, arXiv:2404.01833)
+                from Azure/PyRIT — MIT, Copyright (c) Microsoft Corporation

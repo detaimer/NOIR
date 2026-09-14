@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import random
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 from redteam.core.records import Attempt, Behavior, DetectionResult, Message, Turn
@@ -71,3 +71,7 @@ class ProbeContext:
     max_turns: int
     max_attempts: int
     rng: random.Random
+    judge_client: Adapter | None = (
+        None  # raw judge 엔드포인트(예산 미차감); probe 가 native scorer 구성
+    )
+    params: dict = field(default_factory=dict)  # 기법별 config 파라미터
