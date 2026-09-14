@@ -48,13 +48,16 @@ techniques:
       max_backtracks: 2
 
 behaviors:
-  source: builtin
+  source: builtin        # builtin | jbb | harmbench | <path>.jsonl
   limit: 2
+  # 외부 셋은 자동 다운로드하지 않는다 — 직접 내려받아 로컬 경로를 지정한다:
+  #   source: harmbench
+  #   path: data/harmbench_behaviors_text_all.csv
 
 budget:
   target_calls: 8     # Fair-ASR 예산 B (기법별). 위 params 최악치를 커버하도록 잡는다.
 
 reporting:
-  html: false
+  html: true      # out/runs/<ts>/report.html — 히트맵·드릴다운 포함 자기완결 HTML
 
 out_dir: out/runs

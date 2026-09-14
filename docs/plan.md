@@ -116,45 +116,45 @@ CyberSecEval식 별도 task-score 축; OT 전용 대량 데이터셋 저작(도�
 > 후엔 실제 import 되어 assert 수행. 각 task: 테스트 먼저 → impl → `pytest -q` green + `ruff` clean.
 
 **M0 설정(.py 아님, 훅 무관)**
-1. [ ] `pyproject`에 `openai/pyyaml/jinja2` 추가 + `live` marker + `addopts="-q -m 'not live'"` — 완료: `pip install -e '.[dev]'` OK, 기존 3 tests green.
-2. [ ] `tests/conftest.py`에 공용 fake(`FakeAdapter`(scripted)/`FakeJudge`/샘플 Behavior) — 완료: suite green.
+1. [x] `pyproject`에 `openai/pyyaml/jinja2` 추가 + `live` marker + `addopts="-q -m 'not live'"` — 완료: `pip install -e '.[dev]'` OK, 기존 3 tests green.
+2. [x] `tests/conftest.py`에 공용 fake(`FakeAdapter`(scripted)/`FakeJudge`/샘플 Behavior) — 완료: suite green.
 
 **M1 core 기반**
-3. [ ] test_records → `core/records.py` — 완료: 각 레코드 생성·불변·동등. (importorskip 브레이커 첫 시연)
-4. [ ] test_errors → `core/errors.py` — 완료: 각 예외 raise/필드.
-5. [ ] test_interfaces → `core/interfaces.py`(Adapter Protocol·Detector/Probe ABC·ProbeContext) — 완료: ABC 직접 인스턴스화 TypeError, fake가 isinstance(Adapter).
-6. [ ] test_budget → `core/budget.py` — 완료: N회 OK, N+1 BudgetExceeded, counter 반영.
-7. [ ] test_config_schema → `core/config_schema.py` — 완료: 유효 dict 빌드, self-judge dict→ConfigError(단 `allow_self_judge`).
+3. [x] test_records → `core/records.py` — 완료: 각 레코드 생성·불변·동등. (importorskip 브레이커 첫 시연)
+4. [x] test_errors → `core/errors.py` — 완료: 각 예외 raise/필드.
+5. [x] test_interfaces → `core/interfaces.py`(Adapter Protocol·Detector/Probe ABC·ProbeContext) — 완료: ABC 직접 인스턴스화 TypeError, fake가 isinstance(Adapter).
+6. [x] test_budget → `core/budget.py` — 완료: N회 OK, N+1 BudgetExceeded, counter 반영.
+7. [x] test_config_schema → `core/config_schema.py` — 완료: 유효 dict 빌드, self-judge dict→ConfigError(단 `allow_self_judge`).
 
 **M2 adapters**
-8. [ ] test_http_openai → `adapters/http_openai.py`(fake OpenAI client 주입) — 완료: Message→payload 매핑, generate/chat, 오류→AdapterError, 네트워크 X.
-9. [ ] test_manual_io → `adapters/manual_io.py`(scripted input/output_fn, single+multi-turn, sentinel 종료) — 완료: 프롬프트 출력·순서대로 응답. 후 `adapters/__init__.py` ADAPTERS 등록.
+8. [x] test_http_openai → `adapters/http_openai.py`(fake OpenAI client 주입) — 완료: Message→payload 매핑, generate/chat, 오류→AdapterError, 네트워크 X.
+9. [x] test_manual_io → `adapters/manual_io.py`(scripted input/output_fn, single+multi-turn, sentinel 종료) — 완료: 프롬프트 출력·순서대로 응답. 후 `adapters/__init__.py` ADAPTERS 등록.
 
 **M3 detectors**
-10. [ ] test_refusal_match → `detectors/refusal_match.py`(순수 휴리스틱) — 완료: 거부문구→success False, 응낙→True.
-11. [ ] test_llama_guard → `detectors/llama_guard.py`(FakeAdapter가 "unsafe\nS9"/"safe" 반환) — 완료: 두 분기 파싱, 카테고리 추출.
-12. [ ] test_strong_reject → `detectors/strong_reject.py`(fake judge 루브릭) — 완료: 알려진 루브릭→알려진 0~1 점수, success=score≥τ. 후 `detectors/__init__.py` DETECTORS 등록.
+10. [x] test_refusal_match → `detectors/refusal_match.py`(순수 휴리스틱) — 완료: 거부문구→success False, 응낙→True.
+11. [x] test_llama_guard → `detectors/llama_guard.py`(FakeAdapter가 "unsafe\nS9"/"safe" 반환) — 완료: 두 분기 파싱, 카테고리 추출.
+12. [x] test_strong_reject → `detectors/strong_reject.py`(fake judge 루브릭) — 완료: 알려진 루브릭→알려진 0~1 점수, success=score≥τ. 후 `detectors/__init__.py` DETECTORS 등록.
 
 **M4 정적 probe**
-13. [ ] test_transforms → `probes/transforms.py`(past_tense/to_base64/flip_attack/many_shot 순수) — 완료: 고정입력→고정출력, base64 왕복.
-14. [ ] test_static_probe → `probes/static_probe.py`(FakeAdapter+FakeJudge) — 완료: transform 적용, target_calls==1, primary detection 임베드. 후 `probes/__init__.py` PROBES(정적) 등록.
+13. [x] test_transforms → `probes/transforms.py`(past_tense/to_base64/flip_attack/many_shot 순수) — 완료: 고정입력→고정출력, base64 왕복.
+14. [x] test_static_probe → `probes/static_probe.py`(FakeAdapter+FakeJudge) — 완료: transform 적용, target_calls==1, primary detection 임베드. 후 `probes/__init__.py` PROBES(정적) 등록.
 
 **M5 registry**
-15. [ ] test_registry → `registry.py` — 완료: 알려진 이름 해석, unknown→UnknownComponent(추천), available().
+15. [x] test_registry → `registry.py` — 완료: 알려진 이름 해석, unknown→UnknownComponent(추천), available().
 
 **M6 behaviors**
-16. [ ] test_builtin_seed → `behaviors/builtin_seed.py`(~15, id 유일, 전부 domain+tags, ≥1 `ot_ics`+`attack-ics:*`, 다중 taxonomy) — 완료: 개수·유일성·태그 불변식. 내용은 **비운영적·추상 paraphrase**(데이터로만).
-17. [ ] test_loaders → `behaviors/loaders.py`(builtin + `<path.jsonl>` 디스패치, domain/limit 필터, unknown→ConfigError) — 완료: builtin+tmp jsonl 로드·필터. 후 `behaviors/__init__.py`.
+16. [x] test_builtin_seed → `behaviors/builtin_seed.py`(~15, id 유일, 전부 domain+tags, ≥1 `ot_ics`+`attack-ics:*`, 다중 taxonomy) — 완료: 개수·유일성·태그 불변식. 내용은 **비운영적·추상 paraphrase**(데이터로만).
+17. [x] test_loaders → `behaviors/loaders.py`(builtin + `<path.jsonl>` 디스패치, domain/limit 필터, unknown→ConfigError) — 완료: builtin+tmp jsonl 로드·필터. 후 `behaviors/__init__.py`.
 
 **M7 reporting: 지표·JSONL·터미널**
-18. [ ] test_aggregate → `reporting/aggregate.py`(순수 summarize: 기법별 ASR@B·평균calls·efficiency·StrongREJECT평균·도메인/카테고리 매트릭스·취약 top3·judge 합치도) — 완료: 수제 attempts→정확 수치.
-19. [ ] test_jsonl_writer → `reporting/jsonl_writer.py`(tmp: attempts.jsonl+summary.json+redact config.snapshot.yaml) — 완료: 파일 생성·왕복·**비밀키 부재**.
-20. [ ] test_terminal_table → `reporting/terminal_table.py`(ASCII 문자열) — 완료: 기법 행/카테고리 라인 assert.
+18. [x] test_aggregate → `reporting/aggregate.py`(순수 summarize: 기법별 ASR@B·평균calls·efficiency·StrongREJECT평균·도메인/카테고리 매트릭스·취약 top3·judge 합치도) — 완료: 수제 attempts→정확 수치.
+19. [x] test_jsonl_writer → `reporting/jsonl_writer.py`(tmp: attempts.jsonl+summary.json+redact config.snapshot.yaml) — 완료: 파일 생성·왕복·**비밀키 부재**.
+20. [x] test_terminal_table → `reporting/terminal_table.py`(ASCII 문자열) — 완료: 기법 행/카테고리 라인 assert.
 
 **M8 config_loader + runner + CLI (첫 usable `rt run`, 정적 tier 오프라인 e2e)**
-21. [ ] test_config_loader → `config_loader.py`(yaml 읽기+CLI 오버라이드+from_dict, api_key_env 해석, target≠judge) — 완료: yaml+override→RunConfig.
-22. [ ] test_runner → `runner.py`(전 fake+builtin 부분+정적 기법 e2e, target_calls 기록, 모든 judge 최종응답 채점, tmp 출력) — 완료: 결정론 e2e, 예산 준수.
-23. [ ] test_cli 확장 → `cli.py`에 `rt run -c cfg.yaml [overrides]`(주입 runner/`--dry-run`) — 완료: 명령 wired, help 노출, 기존 cli 테스트 green.
+21. [x] test_config_loader → `config_loader.py`(yaml 읽기+CLI 오버라이드+from_dict, api_key_env 해석, target≠judge) — 완료: yaml+override→RunConfig.
+22. [x] test_runner → `runner.py`(전 fake+builtin 부분+정적 기법 e2e, target_calls 기록, 모든 judge 최종응답 채점, tmp 출력) — 완료: 결정론 e2e, 예산 준수.
+23. [x] test_cli 확장 → `cli.py`에 `rt run -c cfg.yaml [overrides]`(주입 runner/`--dry-run`) — 완료: 명령 wired, help 노출, 기존 cli 테스트 green.
 
 **M9 PAIR**
 24. [x] test_pair_probe → `probes/pair_probe.py`(fake attacker 제안, fake judge k회째 성공) — 완료: 성공시 중단, target_calls==k, attacker_calls==k, ≤B. `"pair"` 등록 + test_runner 확장. 예산초과는 probe 가 삼키지 않고 `BudgetExceeded` 전파(runner 처리); attacker 부재 시 `AdapterError`.
@@ -165,17 +165,32 @@ CyberSecEval식 별도 task-score 축; OT 전용 대량 데이터셋 저작(도�
 **M11 Fair-ASR 마감**
 26. [x] test_aggregate/test_terminal_table 확장: 동일 B에서 정적 vs PAIR vs Crescendo — 완료: 동일-B ASR + 평균calls 열 + efficiency 랭킹(aggregate/terminal_table 는 기존 로직으로 충족, 테스트만 확장).
 
+> **재작업 (2026-09-14, fidelity)**: task 24~26 은 이후 **원저자 코드 기반**으로 재작성됨.
+> PAIR(`patrickrchao/JailbreakingLLMs@6379ef7`)·Crescendo(`Azure/PyRIT@004d079`) 프롬프트를
+> `src/redteam/vendor/{pair,crescendo}/` 에 verbatim vendor(+LICENSE/PROVENANCE/파일별 sha256).
+> native judge 신설: `pair_judge`(1~10)·`crescendo_refusal`·`crescendo_objective`(0~100,th 0.8).
+> PAIR = JSON `{improvement,prompt}` + n_streams×n_iterations + keep_last_n + ==10 조기중단;
+> Crescendo = JSON `generated_question` + refusal→backtrack(max_backtracks) + objective≥0.8.
+> `ProbeContext` 에 `judge_client`+`params`, `TechniqueSpec`(기법별 config) 추가(하위호환).
+> 근거·정책: `docs/technique-fidelity.md`, `references/adding-a-technique.md`, 루트 `THIRD_PARTY_NOTICES.md`.
+> ⚠️ 기존 검증 리포트(bd2ba8c)는 옛 구현 기준 — 커밋 후 M9~M11 **재검증** 필요.
+> ※ 기법 pluginable화(자동등록/엔트리포인트)는 별도 설계 문서: `docs/pluggable-techniques.md`.
+
 **M12 HTML 리포트(중심)**
-27. [ ] test_html_report → `reporting/html_report.py`(jinja2 렌더, 8섹션 + **위험도 히트맵 셀** + top3 + 드릴다운 transcript+judge3 + taxonomy + 합치도) — 완료: 섹션·히트맵 존재, runner 연동, test_runner에 report.html 생성 assert.
+27. [x] test_html_report → `reporting/html_report.py`(jinja2 렌더, 8섹션 + **위험도 히트맵 셀** + top3 + 드릴다운 transcript+judge3 + taxonomy + 합치도) — 완료: 섹션·히트맵 존재, runner 연동, test_runner에 report.html 생성 assert.
+    `Summary` 에 `heatmap`(도메인×기법)·`per_tag`(taxonomy) 축 추가(기본값 有 → 하위호환). 외부 CDN 0개(오프라인 단일 파일), autoescape 필수.
 
 **M13 jbb/HarmBench 로더**
-28. [ ] test_loaders 확장(로컬 fixture 파일로 jbb+harmbench 파싱→Behavior, 태그 보존) — 완료: fixture 파싱, 네트워크 다운로드 제외.
+28. [x] test_loaders 확장(로컬 fixture 파일로 jbb+harmbench 파싱→Behavior, 태그 보존) — 완료: fixture 파싱,
+    네트워크 다운로드 제외. `BehaviorSpec.path` 신설(외부 셋은 로컬 경로 필수); 원본 카테고리는 내부 도메인
+    매핑 + 슬러그 폴백, 원본 taxonomy 는 `jbb:*`/`harmbench:*` 태그로 보존.
 
 **M14 import-linter + deptry**
-29. [ ] `[tool.importlinter]` 계약(layers / role 독립성 / core 금지) 추가 — 완료: `lint-imports` green, `deptry src` green.
+29. [x] `[tool.importlinter]` 계약(layers / role 독립성 / core 금지 / vendor 독립) 추가 — 완료: `lint-imports` 4 kept,
+    `deptry src` green(dev extras 는 DEP002 ignore). 기존 코드 수정 불필요 — 계약이 실 위반을 잡는 것까지 확인.
 
 **M15 live 테스트(선택, marked)**
-30. [ ] `tests/test_http_live.py`(`live` 마킹, 실 엔드포인트 스모크) — 완료: `pytest -q` 무영향, `pytest -m live` 수동 실행.
+30. [x] `tests/test_http_live.py`(`live` 마킹, 실 엔드포인트 스모크) — 완료: `pytest -q` 무영향, `pytest -m live` 수동 실행.
 
 ## Verification (end-to-end)
 

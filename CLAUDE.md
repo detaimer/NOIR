@@ -13,8 +13,10 @@ Ollama/vLLM/SGLang 등으로 구동하는 DeepSeek 등, 또는 API 없는 챗봇
 
 - `src/redteam/` — 모든 로직 (역할별 서브패키지)
   - `probes/` 공격 기법 · `adapters/` 타깃 백엔드 · `detectors/` 성공 판정(judge)
-  - `reporting/` 결과·지표 리포트 · `core/` 공용 기반(ABC·레코드·레지스트리용 타입)
-  - `cli.py` 진입점(`rt`). *계획*: `runner.py`·`registry.py`·`behaviors/` 추가 (→ `docs/plan.md`)
+  - `reporting/` 결과·지표 리포트(집계·JSONL·터미널표·HTML) · `core/` 공용 기반(ABC·레코드·타입)
+  - `behaviors/` 시드 유해요청(내장 팩 + jbb/harmbench/jsonl 로더) · `vendor/` 원저자 프롬프트 사본
+  - `cli.py` 진입점(`rt`) · `config_loader.py` YAML→RunConfig · `registry.py` 이름 조회 ·
+    `runner.py` 오케스트레이션
 - `tests/` — 검증 인프라 (모듈당 `test_<name>.py`, 평면 배치)
 - `references/` — 작업 중 참조하는 운영 규칙 (HOW, 온디맨드) · `docs/` — 설계·근거 (WHY)
 - `out/` — 실행 산출물 (gitignored; `out/runs/<ts>/`)
@@ -27,10 +29,11 @@ python -m pytest -q                      # 전체 테스트 (루트 conftest.py 
 python -m pytest tests/test_<name>.py    # 단일 파일
 python -m pytest -k <expr>               # 이름 패턴으로 선택 / tests/test_x.py::test_fn 로 단일 테스트
 ruff check . && ruff format .            # 린트·포맷 (line-length 100)
-rt --version   /   rt --help             # CLI (계획 후: rt run -c run.yaml)
+lint-imports && deptry src               # 레이어 계약·의존성 검사
+python -m pytest -m live                 # 실 엔드포인트 스모크 (RT_LIVE_* 미설정이면 skip)
+rt --version / rt --help / rt run -c examples/run.yaml   # CLI
 ```
-*계획 반영 후 추가*: 실 엔드포인트 테스트는 `@pytest.mark.live` 로 기본 제외(`pytest -m live` 로만 실행),
-레이어·의존성 검사는 `lint-imports` 와 `deptry src`.
+`live` 마킹 테스트는 `addopts = "-q -m 'not live'"` 로 기본 실행에서 제외된다.
 
 ## 아키텍처 한눈에 (big picture — 자세히는 `docs/plan.md`, `docs/architecture.md`)
 
