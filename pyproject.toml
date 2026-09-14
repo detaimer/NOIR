@@ -55,14 +55,17 @@ root_packages = ["redteam"]
 [[tool.importlinter.contracts]]
 name = "레이어: cli > runner > config_loader > registry > 역할 패키지 > core/vendor"
 type = "layers"
+containers = ["redteam"]
 layers = [
-    "redteam.cli",
-    "redteam.runner",
-    "redteam.config_loader",
-    "redteam.registry",
-    "redteam.probes : redteam.adapters : redteam.detectors : redteam.reporting : redteam.behaviors",
-    "redteam.core : redteam.vendor",
+    "cli",
+    "runner",
+    "config_loader",
+    "registry",
+    "probes : adapters : detectors : reporting : behaviors",
+    "core : vendor",
 ]
+# 새 top-level 모듈이 어느 레이어에도 안 속하면 실패한다 — 계약을 빠져나가는 구멍 방지.
+exhaustive = true
 
 # 위 layers 의 ':' 로도 강제되지만, 위반 메시지를 명시적으로 얻기 위해 따로 둔다.
 [[tool.importlinter.contracts]]
