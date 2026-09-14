@@ -47,7 +47,59 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["typer.Option", "typer.Argument"]
 
-# import-linter 계약과 deptry 규칙은 서브패키지가 코드로 채워지는
-# 프로젝트 단계에서 보강한다 (스캐폴딩 단계에서는 생략).
+# 레이어 계약 — 아키텍처 불변식을 코드로 강제한다 (docs/architecture.md, CLAUDE.md).
+# 위반 시 계약이 아니라 코드를 고친다.
+[tool.importlinter]
+root_packages = ["redteam"]
+
+[[tool.importlinter.contracts]]
+name = "레이어: cli > runner > config_loader > registry > 역할 패키지 > core/vendor"
+type = "layers"
+layers = [
+    "redteam.cli",
+    "redteam.runner",
+    "redteam.config_loader",
+    "redteam.registry",
+    "redteam.probes : redteam.adapters : redteam.detectors : redteam.reporting : redteam.behaviors",
+    "redteam.core : redteam.vendor",
+]
+
+# 위 layers 의 ':' 로도 강제되지만, 위반 메시지를 명시적으로 얻기 위해 따로 둔다.
+[[tool.importlinter.contracts]]
+name = "역할 패키지는 서로 독립 (조합은 runner/registry 만 한다)"
+type = "independence"
+modules = [
+    "redteam.probes",
+    "redteam.adapters",
+    "redteam.detectors",
+    "redteam.reporting",
+    "redteam.behaviors",
+]
+
+[[tool.importlinter.contracts]]
+name = "core 는 역할 패키지를 모른다 (DI: 협력자는 주입받는다)"
+type = "forbidden"
+source_modules = ["redteam.core"]
+forbidden_modules = [
+    "redteam.probes",
+    "redteam.adapters",
+    "redteam.detectors",
+    "redteam.reporting",
+    "redteam.behaviors",
+    "redteam.registry",
+    "redteam.runner",
+    "redteam.cli",
+]
+
+[[tool.importlinter.contracts]]
+name = "vendor 는 원저자 자산 사본 — redteam 코드에 의존하지 않는다"
+type = "forbidden"
+source_modules = ["redteam.vendor"]
+forbidden_modules = ["redteam.core", "redteam.probes", "redteam.detectors"]
+
 [tool.deptry]
 known_first_party = ["redteam"]
+
+# dev extras 는 도구로만 쓰이고 src 에서 import 되지 않는다 — DEP002 정상.
+[tool.deptry.per_rule_ignores]
+DEP002 = ["pytest", "ruff", "import-linter", "deptry"]
