@@ -1,76 +1,89 @@
 # NOIR — NSR Opaque-box Investigation & Red-teaming
 
-범용 **블랙박스 LLM red-teaming** 도구. 상업 API(Claude/OpenAI/Grok …)·로컬 서버(Ollama/vLLM/SGLang …)·
-API 없는 챗봇(사람 중계)을 같은 계약으로 놓고, **논문 기반 공격 기법**을 적용해 취약성을 파악하고
-평가한다. garak/PyRIT 류 pluggable 프레임워크를 더 세련되고 커스터마이즈 가능하게 만드는 것이 지향점.
-(패키지 `redteam` · CLI `rt`)
+**LLM(챗봇 AI)이 얼마나 쉽게 뚫리는지 자동으로 시험해 보는 도구**입니다.
+논문에 나온 여러 "탈옥(jailbreak)" 공격 기법을 골라, 시험할 모델에 실제로 던져 보고,
+그 모델이 위험한 요청에 넘어갔는지를 판정해 점수로 정리해 줍니다.
 
-- 프로젝트 지도: [`CLAUDE.md`](CLAUDE.md)
-- 설계 / 근거: [`docs/`](docs/) — [architecture](docs/architecture.md) ·
-  [evaluation](docs/evaluation.md) · [technique-fidelity](docs/technique-fidelity.md) ·
-  [plan (v0.2 MVP)](docs/plan.md) · [plan-v0.3](docs/plan-v0.3.md) · [roadmap](docs/roadmap.md)
-- 개발 규칙: [`references/`](references/)
+시험 대상은 세 가지를 똑같은 방식으로 다룹니다:
+- **상업 API** — Claude, OpenAI, Grok 등
+- **로컬 서버** — Ollama, vLLM, SGLang 등으로 직접 띄운 모델
+- **API 없는 챗봇** — 사람이 직접 복붙해서 응답을 중계
 
-**상태**: v0.2 기능 MVP 완료(M0~M15). 다음 사이클은 **v0.3 = 측정을 믿게 만들기**(harm judge 기본화·
-무해 대조군·judge 캘리브레이션·재현성·신뢰구간) — 상세 [`docs/plan-v0.3.md`](docs/plan-v0.3.md),
-전체 지도 [`docs/roadmap.md`](docs/roadmap.md).
+garak·PyRIT 같은 기존 도구를 더 깔끔하고 바꿔 끼우기 쉽게 만드는 게 목표입니다.
+(파이썬 패키지 이름은 `redteam`, 터미널 명령은 `rt`)
 
-## 개발 셋업
+**지금 상태**: 기본 기능(v0.2)은 다 만들어졌습니다. 다음 할 일은 v0.3 — "**나오는 점수를 믿을 수 있게 만들기**"
+입니다(실제 모델로 시험해 보니 기본 판정기가 무해한 답변도 "뚫림"으로 잘못 세는 문제가 있었음).
+자세한 계획: [`docs/plan-v0.3.md`](docs/plan-v0.3.md) · 전체 그림: [`docs/roadmap.md`](docs/roadmap.md)
 
-    pip install -e ".[dev]"
-    rt --version
-    python -m pytest -q
+## 설치하고 확인하기
 
-## 실행
+    pip install -e ".[dev]"     # 설치
+    rt --version                # 잘 깔렸는지 확인
+    python -m pytest -q         # 테스트가 다 통과하는지 확인
 
-    rt run -c examples/run.yaml --dry-run          # 실행 계획만 확인
-    rt run -c examples/run.yaml                    # 실제 실행
-    rt run -c examples/run.yaml -s budget.target_calls=16 --out out/runs
+## 실행하기
 
-설정의 원천은 **YAML run-config**([`examples/run.yaml`](examples/run.yaml))이고 `-s key=value`(dotted)
-로 오버라이드한다. 산출물은 `out/runs/<ts>/` 에 `attempts.jsonl` · `summary.json` ·
-`config.snapshot.yaml`(비밀키 redact) · `report.html`(히트맵·드릴다운 포함 자기완결 HTML, `reporting.html: true`)
-로 남고, 터미널에는 요약표가 출력된다.
+    rt run -c examples/run.yaml --dry-run      # 실제로 안 돌리고 "무엇을 할지"만 미리 보기
+    rt run -c examples/run.yaml                # 진짜 실행
+    rt run -c examples/run.yaml -s budget.target_calls=16    # 값 하나 바꿔서 실행
 
-## 구성 요소
+어떻게 시험할지는 **YAML 설정 파일** 하나에 적습니다(예제: [`examples/run.yaml`](examples/run.yaml)).
+파일을 안 고치고 그때그때 바꾸고 싶으면 `-s 항목=값` 으로 덮어씁니다.
 
-레지스트리에서 **이름으로 조회해 조합**하고 `runner` 가 오케스트레이션한다 —
-`probes`(공격) × `adapters`(타깃) × `detectors`(판정).
+실행이 끝나면 결과가 `out/runs/<시각>/` 폴더에 저장됩니다:
+- `attempts.jsonl` — 시도별 기록(무슨 프롬프트를 보내고 어떤 답이 왔는지)
+- `summary.json` — 점수 요약
+- `config.snapshot.yaml` — 이번에 쓴 설정 사본(API 키는 가려서 저장)
+- `report.html` — 브라우저로 열어 보는 리포트(위험도 히트맵·대화 내용 보기)
+- 그리고 터미널에 요약표가 바로 출력됩니다.
 
-| 역할 | 사용 가능한 이름 |
-|---|---|
-| **probes** | `past_tense` · `base64` · `flip_attack` · `many_shot` (정적 1-shot) · `pair` (반복형) · `crescendo` (멀티턴) |
-| **adapters** | `http_openai` (OpenAI 호환 HTTP — 상업 API + 로컬 서버 공통) · `manual` (사람 중계 stdin/stdout) |
-| **detectors** | `refusal_match` (무모델 이진) · `llama_guard` (safe/unsafe) · `strong_reject` (0~1 등급) · `pair_judge` (1~10) · `crescendo_refusal` · `crescendo_objective` (0~1, th 0.8) |
+## 무엇으로 이루어져 있나
 
-모든 기법은 `{attacker?, judge?, turns, transform}` 4-필드로 환원되어 단일 `Probe.run(behavior, ctx)`
-계약으로 표현된다. 구체 협력자(adapter/detector)는 실행 시 주입되며 wiring 은 `runner`/`registry` 만 한다.
+세 종류의 부품을 **이름으로 골라 조합**하고, `runner` 가 순서대로 실행합니다.
 
-## 평가
+| 부품 | 하는 일 | 고를 수 있는 이름 |
+|---|---|---|
+| **probes** | 공격 기법 | `past_tense` · `base64` · `flip_attack` · `many_shot` (한 번에 끝나는 기법) · `pair` (반복하며 다듬는 기법) · `crescendo` (여러 턴에 걸쳐 서서히) |
+| **adapters** | 시험할 모델에 연결 | `http_openai` (상업 API·로컬 서버 공통) · `manual` (사람이 직접 중계) |
+| **detectors** | 답변이 "뚫린 것"인지 판정 | `refusal_match` (거절 문구만 보는 무모델 방식) · `llama_guard` (안전/위험) · `strong_reject` (0~1 점수) · `pair_judge` (1~10) · `crescendo_refusal` · `crescendo_objective` (0~1) |
 
-- **detectors[0] = primary** — ASR 집계 기준. 논문식 ASR 이 필요하면 primary 를
-  `pair_judge`/`crescendo_objective` 로 지정하면 코드 변경 없이 전환된다.
-  주의: 무모델 `refusal_match` 는 "거부 안 함"을 성공으로 세어 무해 응답에 오탐이 크다(실모델 검증 기준).
-  harm-conditioned judge(`llama_guard` 등)를 primary 로 권장 — 기본값 전환은 v0.3([plan-v0.3](docs/plan-v0.3.md)).
-- **Fair-ASR** — 기법마다 쿼리 수가 다르므로(PAIR·Crescendo 는 많음) 타깃 호출을 동일 예산 `B`
-  (`budget.target_calls`)로 제한해 비교한다. 예산은 `BudgetedTarget` wrapper 가 자동 집계.
-- ASR 은 헤드라인 지표일 뿐 유일 축이 아니다 — 자세히는 [`docs/evaluation.md`](docs/evaluation.md).
-- OT/ICS 등 도메인 특화는 하드코딩이 아니라 behavior 의 `domain` + taxonomy 태그로 표현한다.
+새 공격 기법을 넣어도 나머지 코드는 안 건드리게 설계돼 있습니다(부품은 실행할 때 끼워 넣음).
 
-## 기법 충실도 (fidelity)
+## 점수는 어떻게 읽나
 
-공격 기법은 논문 기억으로 재현하지 않는다. **원저자 프롬프트는 byte-verbatim vendor + 루프는 원본
-코드를 보고 충실히 재구현 + 출처·라이선스 기록**이 정책이며, 상위 패키지를 import/pip-의존하지 않는다.
-vendored 자산은 `src/redteam/vendor/<technique>/` 에 원본 `LICENSE` 와 `PROVENANCE.md`
-(repo·commit SHA·원본 경로·파일별 sha256·DEVIATIONS)를 동반한다.
+- **ASR(공격 성공률)** = 성공한 시도 ÷ 전체 시도. 가장 대표적인 숫자입니다.
+- 판정기(detector)는 여러 개 붙일 수 있고, **맨 앞에 놓은 것이 대표 점수를 정합니다.**
+- ⚠️ 기본 판정기 `refusal_match` 는 "모델이 거절만 안 하면 성공"으로 세기 때문에,
+  **무해한 답변도 성공으로 잘못 잡는 경우가 많습니다**(실제 모델로 확인함). 그래서 답변이 진짜
+  위험한지 보는 판정기(`llama_guard` 등)를 앞에 두길 권합니다. 이걸 기본값으로 바꾸는 건 v0.3 작업.
+- **Fair-ASR** — `pair`·`crescendo` 는 한 번에 모델을 여러 번 부르기 때문에 그냥 비교하면 불공평합니다.
+  그래서 **모델을 부를 수 있는 횟수(예산 `B`)를 똑같이 맞춰** 놓고 비교합니다.
+- ASR 이 전부는 아닙니다. 더 자세히는 [`docs/evaluation.md`](docs/evaluation.md).
+- 정수장 제어시스템(OT/ICS) 같은 특수 분야는 코드로 특별 취급하지 않고, 요청에 붙인 태그로 표현합니다.
 
-- 정책과 근거: [`docs/technique-fidelity.md`](docs/technique-fidelity.md)
-- 추가 절차: [`references/adding-a-technique.md`](references/adding-a-technique.md)
-- 서드파티 고지: [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
+## 공격 기법은 원본 그대로 (fidelity)
+
+공격 기법을 기억에 의존해 대충 재현하지 않습니다. **원저자가 쓴 프롬프트는 글자 그대로 복사해 보관하고,
+동작은 원본 코드를 보며 충실히 다시 구현하며, 출처와 라이선스를 함께 남깁니다.** 남의 패키지를
+그대로 import 하지도 않습니다. 복사한 자료는 `src/redteam/vendor/<기법>/` 아래에 원본 `LICENSE` 와
+출처 기록(`PROVENANCE.md`)과 함께 둡니다.
+
+- 정책과 이유: [`docs/technique-fidelity.md`](docs/technique-fidelity.md)
+- 기법 추가 방법: [`references/adding-a-technique.md`](references/adding-a-technique.md)
+- 외부 자료 고지: [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
 
 ## 개발 규칙
 
-**TDD 강제** — `<name>.py` 보다 `tests/test_<name>.py` 를 먼저 쓰고(전역 훅이 검사), 모듈 basename 은
-repo 전역에서 유일하게, 매 변경 후 `python -m pytest -q` 를 green 으로 유지한다.
-자세히는 [`references/testing.md`](references/testing.md) · [`references/code-style.md`](references/code-style.md) ·
-[`references/git-workflow.md`](references/git-workflow.md).
+**테스트 먼저(TDD)** — 코드 `<name>.py` 를 쓰기 전에 테스트 `tests/test_<name>.py` 를 먼저 만듭니다
+(전역 훅이 검사). 파일 이름은 겹치지 않게, 변경할 때마다 `python -m pytest -q` 가 통과하도록 유지합니다.
+자세히: [`references/testing.md`](references/testing.md) · [`references/code-style.md`](references/code-style.md) ·
+[`references/git-workflow.md`](references/git-workflow.md)
+
+## 더 읽을거리
+
+- 프로젝트 전체 지도: [`CLAUDE.md`](CLAUDE.md)
+- 설계·근거 문서: [`docs/`](docs/) — [architecture](docs/architecture.md) · [evaluation](docs/evaluation.md) ·
+  [technique-fidelity](docs/technique-fidelity.md) · [plan (v0.2)](docs/plan.md) ·
+  [plan-v0.3](docs/plan-v0.3.md) · [roadmap](docs/roadmap.md)
+- 개발 규칙 모음: [`references/`](references/)
