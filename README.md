@@ -8,8 +8,12 @@ API 없는 챗봇(사람 중계)을 같은 계약으로 놓고, **논문 기반 
 - 프로젝트 지도: [`CLAUDE.md`](CLAUDE.md)
 - 설계 / 근거: [`docs/`](docs/) — [architecture](docs/architecture.md) ·
   [evaluation](docs/evaluation.md) · [technique-fidelity](docs/technique-fidelity.md) ·
-  [plan](docs/plan.md) · [roadmap](docs/roadmap.md)
+  [plan (v0.2 MVP)](docs/plan.md) · [plan-v0.3](docs/plan-v0.3.md) · [roadmap](docs/roadmap.md)
 - 개발 규칙: [`references/`](references/)
+
+**상태**: v0.2 기능 MVP 완료(M0~M15). 다음 사이클은 **v0.3 = 측정을 믿게 만들기**(harm judge 기본화·
+무해 대조군·judge 캘리브레이션·재현성·신뢰구간) — 상세 [`docs/plan-v0.3.md`](docs/plan-v0.3.md),
+전체 지도 [`docs/roadmap.md`](docs/roadmap.md).
 
 ## 개발 셋업
 
@@ -25,7 +29,8 @@ API 없는 챗봇(사람 중계)을 같은 계약으로 놓고, **논문 기반 
 
 설정의 원천은 **YAML run-config**([`examples/run.yaml`](examples/run.yaml))이고 `-s key=value`(dotted)
 로 오버라이드한다. 산출물은 `out/runs/<ts>/` 에 `attempts.jsonl` · `summary.json` ·
-`config.snapshot.yaml`(비밀키 redact) 로 남는다.
+`config.snapshot.yaml`(비밀키 redact) · `report.html`(히트맵·드릴다운 포함 자기완결 HTML, `reporting.html: true`)
+로 남고, 터미널에는 요약표가 출력된다.
 
 ## 구성 요소
 
@@ -36,7 +41,7 @@ API 없는 챗봇(사람 중계)을 같은 계약으로 놓고, **논문 기반 
 |---|---|
 | **probes** | `past_tense` · `base64` · `flip_attack` · `many_shot` (정적 1-shot) · `pair` (반복형) · `crescendo` (멀티턴) |
 | **adapters** | `http_openai` (OpenAI 호환 HTTP — 상업 API + 로컬 서버 공통) · `manual` (사람 중계 stdin/stdout) |
-| **detectors** | `refusal_match` (무모델 이진) · `llama_guard` (safe/unsafe) · `strong_reject` (0~1 등급) · `pair_judge` (1~10) · `crescendo_refusal` · `crescendo_objective` (0~100) |
+| **detectors** | `refusal_match` (무모델 이진) · `llama_guard` (safe/unsafe) · `strong_reject` (0~1 등급) · `pair_judge` (1~10) · `crescendo_refusal` · `crescendo_objective` (0~1, th 0.8) |
 
 모든 기법은 `{attacker?, judge?, turns, transform}` 4-필드로 환원되어 단일 `Probe.run(behavior, ctx)`
 계약으로 표현된다. 구체 협력자(adapter/detector)는 실행 시 주입되며 wiring 은 `runner`/`registry` 만 한다.
@@ -45,6 +50,8 @@ API 없는 챗봇(사람 중계)을 같은 계약으로 놓고, **논문 기반 
 
 - **detectors[0] = primary** — ASR 집계 기준. 논문식 ASR 이 필요하면 primary 를
   `pair_judge`/`crescendo_objective` 로 지정하면 코드 변경 없이 전환된다.
+  주의: 무모델 `refusal_match` 는 "거부 안 함"을 성공으로 세어 무해 응답에 오탐이 크다(실모델 검증 기준).
+  harm-conditioned judge(`llama_guard` 등)를 primary 로 권장 — 기본값 전환은 v0.3([plan-v0.3](docs/plan-v0.3.md)).
 - **Fair-ASR** — 기법마다 쿼리 수가 다르므로(PAIR·Crescendo 는 많음) 타깃 호출을 동일 예산 `B`
   (`budget.target_calls`)로 제한해 비교한다. 예산은 `BudgetedTarget` wrapper 가 자동 집계.
 - ASR 은 헤드라인 지표일 뿐 유일 축이 아니다 — 자세히는 [`docs/evaluation.md`](docs/evaluation.md).
