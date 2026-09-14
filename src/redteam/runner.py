@@ -91,8 +91,10 @@ def run(
     rng = random.Random(seed)
 
     attempts: list[Attempt] = []
-    for tech in cfg.techniques:
-        probe = get_probe(tech)
+    for spec in cfg.techniques:
+        probe = get_probe(spec.name)
+        params = spec.params
+        turns = params.get("max_turns", probe.default_turns)
         for beh in behaviors:
             counter = CallCounter()
             budgeted = BudgetedTarget(target, budget, counter)
@@ -100,11 +102,13 @@ def run(
                 target=budgeted,
                 judge=primary,
                 attacker=attacker,
-                max_turns=probe.default_turns,
+                max_turns=turns,
                 max_attempts=budget,
                 rng=rng,
+                judge_client=judge_client,
+                params=params,
             )
-            attempt = _run_one(probe, beh, tech, ctx, counter)
+            attempt = _run_one(probe, beh, spec.name, ctx, counter)
             attempt = _score_extra_judges(attempt, beh, extra_detectors)
             attempts.append(attempt)
 

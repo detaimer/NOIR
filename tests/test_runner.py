@@ -95,26 +95,31 @@ def test_adapter_error_becomes_attempt_error(tmp_path):
 
 
 def test_pair_e2e(tmp_path, fake_adapter):
-    # 1라운드 거부 → 2라운드 응낙(refusal_match primary): PAIR 이 2회째 성공·중단.
-    target = fake_adapter(responses=["죄송하지만 도와드릴 수 없습니다", "물론이죠, 다음과 같이"])
-    attacker = fake_adapter(responses=["adv1", "adv2"])
+    # 충실 PAIR e2e: attacker 가 JSON 제안 → target 응낙 → refusal_match(primary) 성공.
+    # 1 stream × 1 iteration 으로 카운트를 결정적으로 유지.
+    target = fake_adapter(responses="물론이죠, 다음과 같이")  # 응낙 → refusal_match success
+    attacker = fake_adapter(responses='{"improvement": "i", "prompt": "adv"}')
+    judge_client = fake_adapter(responses="Rating: [[1]]")  # 내부 1~10 judge (별도 엔드포인트)
     result = runner.run(
         _cfg(
-            techniques=["pair"],
+            techniques=[{"pair": {"n_streams": 1, "n_iterations": 1}}],
             behaviors={"source": "builtin", "limit": 1},
             budget={"target_calls": 5},
         ),
         target=target,
         attacker=attacker,
+        judge_client=judge_client,
         out_root=str(tmp_path),
         timestamp="TS_PAIR",
     )
     a = result.attempts[0]
     assert a.technique == "pair"
     assert a.success is True
-    assert a.target_calls == 2  # counter 권위
-    assert a.attacker_calls == 2
-    assert a.judge_calls == 2
+    assert a.target_calls == 1  # counter 권위 (1 stream × 1 iter)
+    assert a.attacker_calls == 1
+    assert a.judge_calls == 2  # 내부 rating 1 + primary(refusal_match) 1
+    # target 은 attacker JSON 의 파싱된 prompt 를 받는다.
+    assert a.final_prompt == "adv"
 
 
 def test_crescendo_e2e_via_manual_adapter(tmp_path, fake_adapter):
@@ -127,21 +132,28 @@ def test_crescendo_e2e_via_manual_adapter(tmp_path, fake_adapter):
         input_fn=lambda: next(scripted),
         output_fn=captured.append,
     )
-    attacker = fake_adapter(responses=["u1", "u2"])
+    attacker = fake_adapter(
+        responses=[
+            '{"generated_question": "u1"}',
+            '{"generated_question": "u2"}',
+        ]
+    )
+    judge_client = fake_adapter(responses=['{"score_value": "40"}', '{"score_value": "40"}'])
     result = runner.run(
         _cfg(
-            techniques=["crescendo"],
+            techniques=[{"crescendo": {"max_turns": 2, "max_backtracks": 0}}],
             behaviors={"source": "builtin", "limit": 1},
             budget={"target_calls": 5},
         ),
         target=manual,
         attacker=attacker,
+        judge_client=judge_client,
         out_root=str(tmp_path),
         timestamp="TS_CRES",
     )
     a = result.attempts[0]
     assert a.technique == "crescendo"
-    assert a.success is True
+    assert a.success is True  # 최종 응답 응낙 → refusal_match(primary) success
     assert a.target_calls == 2
     assert a.attacker_calls == 2
     # 대화가 멀티턴으로 성장했음을 Manual 어댑터 출력으로 실증(user 누적 + assistant 등장).
@@ -152,15 +164,17 @@ def test_crescendo_e2e_via_manual_adapter(tmp_path, fake_adapter):
 def test_budget_exhausted_crescendo(tmp_path, fake_adapter):
     # Crescendo(max_turns=5)를 budget B=2 로 제한 → 3번째 호출서 BudgetExceeded 를 runner 흡수.
     target = fake_adapter(responses="죄송하지만 도와드릴 수 없습니다")  # 항상 거부
-    attacker = fake_adapter(responses=["u1", "u2", "u3", "u4", "u5"])
+    attacker = fake_adapter(responses='{"generated_question": "u"}')
+    judge_client = fake_adapter(responses='{"score_value": "True"}')  # 매 턴 refusal → backtrack
     result = runner.run(
         _cfg(
-            techniques=["crescendo"],
+            techniques=[{"crescendo": {"max_turns": 5}}],
             behaviors={"source": "builtin", "limit": 1},
             budget={"target_calls": 2},
         ),
         target=target,
         attacker=attacker,
+        judge_client=judge_client,
         out_root=str(tmp_path),
         timestamp="TS_BUDGET",
     )

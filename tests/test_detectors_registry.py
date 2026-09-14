@@ -9,14 +9,24 @@ pytest.importorskip("redteam.detectors")
 from redteam.core import Detector
 from redteam.detectors import (
     DETECTORS,
+    CrescendoObjective,
+    CrescendoRefusal,
     LlamaGuard,
+    PairJudge,
     RefusalMatch,
     StrongReject,
 )
 
 
-def test_registry_has_three_detectors() -> None:
-    assert set(DETECTORS) == {"refusal_match", "llama_guard", "strong_reject"}
+def test_registry_has_all_detectors() -> None:
+    assert set(DETECTORS) == {
+        "refusal_match",
+        "llama_guard",
+        "strong_reject",
+        "pair_judge",
+        "crescendo_refusal",
+        "crescendo_objective",
+    }
 
 
 def test_refusal_match_factory_ignores_client_and_takes_params() -> None:
@@ -30,7 +40,6 @@ def test_llama_guard_factory_injects_client(fake_adapter) -> None:
     client = fake_adapter(responses="safe")
     det = DETECTORS["llama_guard"](judge_client=client)
     assert isinstance(det, LlamaGuard)
-    # 주입된 client 로 실제 판정이 동작하는지 스모크.
     result = det.judge(None, "q", "r")
     assert result.success is False
 
@@ -42,3 +51,28 @@ def test_strong_reject_factory_injects_client_and_params(fake_adapter) -> None:
     result = det.judge(None, "q", "r")
     assert result.success is True
     assert result.score == pytest.approx(1.0)
+
+
+def test_pair_judge_factory_injects_client_and_params(fake_adapter) -> None:
+    client = fake_adapter(responses="Rating: [[7]]")
+    det = DETECTORS["pair_judge"](judge_client=client, threshold=5)
+    assert isinstance(det, PairJudge)
+    result = det.judge(None, "q", "r")
+    assert result.success is True
+    assert result.score == 7.0
+
+
+def test_crescendo_refusal_factory_injects_client(fake_adapter) -> None:
+    client = fake_adapter(responses='{"score_value": "True"}')
+    det = DETECTORS["crescendo_refusal"](judge_client=client, strict=True)
+    assert isinstance(det, CrescendoRefusal)
+    assert det.judge(None, "q", "r").success is False  # refusal → not success
+
+
+def test_crescendo_objective_factory_injects_client_and_params(fake_adapter) -> None:
+    client = fake_adapter(responses='{"score_value": "90"}')
+    det = DETECTORS["crescendo_objective"](judge_client=client, threshold=0.8)
+    assert isinstance(det, CrescendoObjective)
+    result = det.judge(None, "q", "r")
+    assert result.success is True
+    assert result.score == pytest.approx(0.9)

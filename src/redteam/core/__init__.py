@@ -9,6 +9,7 @@ from redteam.core.config_schema import (
     DetectorSpec,
     EndpointConfig,
     RunConfig,
+    TechniqueSpec,
 )
 from redteam.core.errors import (
     AdapterError,
@@ -48,6 +49,7 @@ __all__ = [
     "DetectorSpec",
     "EndpointConfig",
     "RunConfig",
+    "TechniqueSpec",
     # errors
     "AdapterError",
     "BudgetExceeded",

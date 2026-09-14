@@ -100,3 +100,38 @@ def test_probe_context_holds_injected_collaborators():
     assert ctx.max_turns == 5
     assert ctx.max_attempts == 10
     assert isinstance(ctx.rng, random.Random)
+
+
+def test_probe_context_new_fields_defaults_and_settable():
+    target = _DuckAdapter()
+
+    class J(itf.Detector):
+        name = "j"
+
+        def judge(self, behavior, prompt, response, conversation=None):
+            return rec.DetectionResult(success=False, judge_name="j")
+
+    ctx = itf.ProbeContext(
+        target=target,
+        judge=J(),
+        attacker=None,
+        max_turns=1,
+        max_attempts=1,
+        rng=random.Random(0),
+    )
+    assert ctx.judge_client is None
+    assert ctx.params == {}
+
+    jc = _DuckAdapter()
+    ctx2 = itf.ProbeContext(
+        target=target,
+        judge=J(),
+        attacker=None,
+        max_turns=1,
+        max_attempts=1,
+        rng=random.Random(0),
+        judge_client=jc,
+        params={"n_streams": 3},
+    )
+    assert ctx2.judge_client is jc
+    assert ctx2.params == {"n_streams": 3}

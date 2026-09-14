@@ -1,44 +1,58 @@
-# 예시 run-config — 기본은 오프라인 친화(Manual 타깃: 사람이 응답을 복붙하거나 파이프로 주입).
-# 상업 API/로컬 서버로 바꾸려면 target 을 아래 http 예시처럼 교체하면 된다(설정만 다름).
+# 예시 run-config — 로컬 Ollama(OpenAI 호환) 타깃으로 정적(M4)+PAIR+Crescendo 실행.
+# 오프라인/사람중계로 바꾸려면 target 을 아래 manual 예시로 교체하면 된다(설정만 다름).
 #
 # target:
-#   adapter: http_openai
-#   base_url: "https://api.openai.com/v1"   # 로컬이면 http://localhost:11434/v1 (Ollama) 등
-#   model: "gpt-4o-mini"
-#   api_key_env: "OPENAI_API_KEY"           # 비밀키는 인라인 금지 — 환경변수 이름만
-#
-# judge 엔드포인트(LLM judge 용)는 target 과 달라야 한다(자기 채점 금지):
-# judge:
-#   adapter: http_openai
-#   base_url: "https://api.openai.com/v1"
-#   model: "gpt-4o"
-#   api_key_env: "OPENAI_API_KEY"
+#   adapter: manual        # 사람이 응답을 복붙하거나 파이프로 주입 (stdin)
+#   base_url: "-"
+#   model: "-"
 
 target:
-  adapter: manual
-  base_url: "-"
-  model: "-"
+  adapter: http_openai
+  base_url: "http://localhost:11434/v1"   # Ollama OpenAI 호환 엔드포인트
+  model: "gpt-oss:20b"
+  api_key_env: "OLLAMA_API_KEY"           # 비밀키는 인라인 금지 — 환경변수 이름만
 
-# target:
-#   adapter: http_openai
-#   base_url: "http://localhost:11434/v1"
-#   model: "gpt-oss:20b"
-#   api_key_env: "OLLAMA_API_KEY"
+# PAIR/Crescendo 용 attacker LLM. target 과 같아도 됨(금지 제약은 target≠judge 뿐).
+attacker:
+  adapter: http_openai
+  base_url: "http://localhost:11434/v1"
+  model: "gpt-oss:20b"
+  api_key_env: "OLLAMA_API_KEY"
 
-# detectors[0] = primary(집계 기준). refusal_match 는 무모델·오프라인.
+# judge 엔드포인트 — PAIR(1~10)·Crescendo(refusal+0~100)의 원본 judge 및 LLM detector 가 사용.
+# PAIR/Crescendo 를 돌리려면 필수. target 과 달라야 함(자기 채점 금지) → 모델을 다르게.
+judge:
+  adapter: http_openai
+  base_url: "http://localhost:11434/v1"
+  model: "llama3.1:8b"
+  api_key_env: "OLLAMA_API_KEY"
+
+# detectors[0] = primary(집계 기준). refusal_match 는 무모델·오프라인 이진 judge.
+# 원본 논문식 ASR 을 원하면 primary 를 pair_judge / crescendo_objective 로 바꾸면 된다.
 detectors:
   - refusal_match
+  # - crescendo_objective   # 0~100 목표달성(threshold 0.8) — Crescendo primary 로 쓰려면
+  # - pair_judge            # 1~10 (jailbreak==10) — PAIR primary 로 쓰려면
 
+# 기법별 파라미터(원본 기본값). 문자열만 쓰면 기본값 사용.
+# 주의: budget.target_calls(B)는 기법 최악 호출수 이상이어야 완주.
+#   PAIR ≈ n_streams×n_iterations,  Crescendo ≈ max_turns(+backtracks)
 techniques:
-  - flip_attack
-  - past_tense
+  - flip_attack                                    # 정적(1 호출)
+  - past_tense                                     # 정적(1 호출)
+  - pair:                                          # 반복형(attacker+judge 필요)
+      n_streams: 2
+      n_iterations: 2
+  - crescendo:                                     # 멀티턴(attacker+judge 필요)
+      max_turns: 4
+      max_backtracks: 2
 
 behaviors:
   source: builtin
   limit: 2
 
 budget:
-  target_calls: 5
+  target_calls: 8     # Fair-ASR 예산 B (기법별). 위 params 최악치를 커버하도록 잡는다.
 
 reporting:
   html: false
