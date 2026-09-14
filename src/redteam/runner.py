@@ -28,7 +28,7 @@ from redteam.core import (
     RunConfig,
 )
 from redteam.registry import get_adapter, get_detector, get_probe
-from redteam.reporting import Summary, render_table, summarize, write_run
+from redteam.reporting import Summary, render_table, summarize, write_html, write_run
 
 _UNLIMITED = 10**9
 
@@ -119,6 +119,18 @@ def run(
     paths: dict[str, Path] = {}
     if write:
         paths = write_run(out_dir, attempts, summary, snapshot or {})
+        if cfg.html:
+            paths["html"] = write_html(
+                out_dir,
+                summary,
+                attempts,
+                behaviors,
+                meta={
+                    "target": cfg.target.model,
+                    "budget": cfg.budget or "unlimited",
+                    "timestamp": out_dir.name,
+                },
+            )
     table = render_table(summary)
     return RunResult(attempts=attempts, summary=summary, out_dir=out_dir, paths=paths, table=table)
 

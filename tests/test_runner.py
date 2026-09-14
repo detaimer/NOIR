@@ -184,3 +184,66 @@ def test_budget_exhausted_crescendo(tmp_path, fake_adapter):
     assert a.success is False
     assert a.error is not None
     assert a.turns == ()
+
+
+# --- M12: HTML 리포트 연동 ---
+
+
+def test_html_report_written_when_enabled(tmp_path, fake_adapter):
+    target = fake_adapter(responses="물론이죠, 다음과 같습니다 ...")
+    result = runner.run(
+        _cfg(reporting={"html": True}),
+        target=target,
+        out_root=str(tmp_path),
+        timestamp="TS",
+    )
+    path = result.paths["html"]
+    assert path.name == "report.html"
+    assert path.exists()
+    html = path.read_text(encoding="utf-8")
+    assert html.lstrip().lower().startswith("<!doctype html")
+    # 집계 축이 실제로 실려 있다
+    assert "flip_attack" in html
+    assert "위험도 히트맵 (도메인 × 기법)" in html
+
+
+def test_html_report_carries_run_meta(tmp_path, fake_adapter):
+    """리포트 헤더에 타깃 모델·예산 B·실행 타임스탬프가 남는다(재현성)."""
+    target = fake_adapter(responses="ok")
+    result = runner.run(
+        _cfg(
+            reporting={"html": True},
+            target={
+                "base_url": "http://localhost:11434/v1",
+                "model": "deepseek-r1",
+                "adapter": "manual",
+            },
+        ),
+        target=target,
+        out_root=str(tmp_path),
+        timestamp="TS",
+    )
+    html = result.paths["html"].read_text(encoding="utf-8")
+    assert "deepseek-r1" in html
+    assert "TS" in html
+    assert ">5<" in html or "budget B: 5" in html
+
+
+def test_html_report_skipped_when_disabled(tmp_path, fake_adapter):
+    result = runner.run(
+        _cfg(), target=fake_adapter(responses="ok"), out_root=str(tmp_path), timestamp="TS"
+    )
+    assert "html" not in result.paths
+    assert not (result.out_dir / "report.html").exists()
+
+
+def test_html_report_not_written_when_write_false(tmp_path, fake_adapter):
+    result = runner.run(
+        _cfg(reporting={"html": True}),
+        target=fake_adapter(responses="ok"),
+        out_root=str(tmp_path),
+        timestamp="TS",
+        write=False,
+    )
+    assert result.paths == {}
+    assert not (result.out_dir / "report.html").exists()

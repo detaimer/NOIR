@@ -207,3 +207,62 @@ def test_fair_asr_three_tier_same_budget():
     assert pt["crescendo"]["efficiency"] == pytest.approx(0.2)  # 2/10
     ranked = sorted(pt, key=lambda t: -pt[t]["efficiency"])
     assert ranked == ["flip_attack", "pair", "crescendo"]
+
+
+# --- M12: HTML 리포트가 쓰는 추가 축 (도메인×기법 히트맵 · taxonomy) ---
+
+
+def test_heatmap_domain_by_technique(attempts, behaviors):
+    """히트맵 = {domain: {technique: {n, successes, asr}}} — HTML 리포트의 중심 섹션."""
+    h = summarize(attempts, behaviors).heatmap
+    assert h["cyber"]["flip_attack"] == {"n": 2, "successes": 1, "asr": pytest.approx(0.5)}
+    assert h["ot_ics"]["flip_attack"] == {"n": 1, "successes": 1, "asr": pytest.approx(1.0)}
+    assert h["ot_ics"]["pair"] == {"n": 1, "successes": 1, "asr": pytest.approx(1.0)}
+    assert h["privacy"]["pair"] == {"n": 1, "successes": 0, "asr": pytest.approx(0.0)}
+
+
+def test_heatmap_omits_empty_cells(attempts, behaviors):
+    """시도가 없는 (도메인, 기법) 조합은 셀 자체가 없다 — 0% 와 '미측정'을 구분."""
+    h = summarize(attempts, behaviors).heatmap
+    assert "pair" not in h["cyber"]
+    assert "flip_attack" not in h["privacy"]
+
+
+def test_heatmap_unknown_domain_when_behavior_missing():
+    a = _attempt("ghost", "flip_attack", True, 1, (_dr(True, "refusal_match"),))
+    h = summarize([a], behaviors=None).heatmap
+    assert h["unknown"]["flip_attack"]["asr"] == pytest.approx(1.0)
+
+
+def test_per_tag_taxonomy_coverage():
+    """behavior 의 tags(taxonomy)별 분해 — 한 attempt 가 여러 태그에 동시 집계된다."""
+    behaviors = [
+        Behavior(id="b1", prompt="p1", domain="cyber", tags=("owasp-llm:LLM01", "attack:T1059")),
+        Behavior(id="b2", prompt="p2", domain="ot_ics", tags=("attack-ics:T0836",)),
+    ]
+    attempts = [
+        _attempt("b1", "flip_attack", True, 1, (_dr(True, "refusal_match"),)),
+        _attempt("b1", "pair", False, 3, (_dr(False, "refusal_match"),)),
+        _attempt("b2", "flip_attack", True, 1, (_dr(True, "refusal_match"),)),
+    ]
+    t = summarize(attempts, behaviors).per_tag
+    assert t["owasp-llm:LLM01"] == {"n": 2, "successes": 1, "asr": pytest.approx(0.5)}
+    assert t["attack:T1059"] == {"n": 2, "successes": 1, "asr": pytest.approx(0.5)}
+    assert t["attack-ics:T0836"] == {"n": 1, "successes": 1, "asr": pytest.approx(1.0)}
+
+
+def test_per_tag_empty_when_no_tags(attempts, behaviors):
+    assert summarize(attempts, behaviors).per_tag == {}
+
+
+def test_new_axes_empty_for_empty_attempts():
+    s = summarize([], None)
+    assert s.heatmap == {}
+    assert s.per_tag == {}
+
+
+def test_new_axes_have_defaults_on_bare_summary():
+    """기존 호출부(위치 인자·부분 생성)가 깨지지 않도록 새 필드는 기본값을 갖는다."""
+    s = Summary()
+    assert s.heatmap == {}
+    assert s.per_tag == {}

@@ -24,6 +24,10 @@ class Summary:
       per_category[cat]: int (detection 카테고리 등장 횟수)
       vulnerable_top3: ASR 상위 3개 도메인 이름 리스트 (동점 → count desc, name asc)
       judge_agreement: 모든 detection 이 .success 로 합의한 attempt 비율(<2개는 합의로 간주)
+      heatmap[domain][tech]: {n, successes, asr} — 시도가 있는 셀만 존재(0% 와 미측정 구분)
+      per_tag[tag]: {n, successes, asr} — behavior taxonomy 태그별 분해(한 attempt 가 다중 집계)
+
+    `heatmap`/`per_tag` 는 뒤에 추가된 필드로 기본값이 있어 기존 호출부와 호환된다.
     """
 
     overall: dict = field(default_factory=dict)
@@ -32,6 +36,8 @@ class Summary:
     per_category: dict = field(default_factory=dict)
     vulnerable_top3: list = field(default_factory=list)
     judge_agreement: float = 1.0
+    heatmap: dict = field(default_factory=dict)
+    per_tag: dict = field(default_factory=dict)
 
 
 def _behavior_map(
@@ -86,10 +92,28 @@ def _technique_stats(group: list[Attempt]) -> dict:
 
 
 def _domain_stats(group: list[Attempt]) -> dict:
-    """도메인 그룹 하나의 지표."""
+    """attempt 그룹 하나의 {n, successes, asr} (도메인·히트맵 셀·태그 공용)."""
     n = len(group)
     successes = sum(1 for a in group if a.success)
     return {"n": n, "successes": successes, "asr": _safe_div(successes, n)}
+
+
+def _heatmap(attempts: list[Attempt], domain_of) -> dict[str, dict[str, dict]]:
+    """도메인 × 기법 위험도 셀. 시도가 없는 조합은 셀을 만들지 않는다."""
+    grid: dict[str, dict[str, list[Attempt]]] = {}
+    for a in attempts:
+        grid.setdefault(domain_of(a), {}).setdefault(a.technique, []).append(a)
+    return {dom: {tech: _domain_stats(g) for tech, g in row.items()} for dom, row in grid.items()}
+
+
+def _per_tag(attempts: list[Attempt], bmap: dict[str, Behavior]) -> dict[str, dict]:
+    """taxonomy 태그별 분해 — behavior 가 태그를 여러 개 가지면 각 태그에 중복 집계된다."""
+    groups: dict[str, list[Attempt]] = {}
+    for a in attempts:
+        b = bmap.get(a.behavior_id)
+        for tag in b.tags if b is not None else ():
+            groups.setdefault(tag, []).append(a)
+    return {tag: _domain_stats(g) for tag, g in groups.items()}
 
 
 def _agreement_fraction(attempts: list[Attempt]) -> float:
@@ -151,4 +175,6 @@ def summarize(
         per_category=per_category,
         vulnerable_top3=_top3_domains(per_domain),
         judge_agreement=_agreement_fraction(attempts),
+        heatmap=_heatmap(attempts, domain_of),
+        per_tag=_per_tag(attempts, bmap),
     )
